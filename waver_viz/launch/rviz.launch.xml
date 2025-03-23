@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<launch>
+    <!-- Declare arguments -->
+    <arg name="use_sim_time" default="true" />
+    <arg name="model" default="$(find-pkg-share waver_description)/urdf/waver.xacro" />
+    <arg name="rviz_config" default="$(find-pkg-share waver_viz)/rviz/waver.rviz" />
+
+    <!-- Description launch -->
+    <include file="$(find-pkg-share waver_description)/launch/description.launch.xml">
+        <arg name="use_sim_time" value="$(var use_sim_time)" />
+        <arg name="model" value="$(var model)" />
+    </include>
+
+    <!-- RViz2 node -->
+    <node name="rviz" pkg="rviz2" exec="rviz2" output="screen" args="-d $(var rviz_config)" />
+</launch>
