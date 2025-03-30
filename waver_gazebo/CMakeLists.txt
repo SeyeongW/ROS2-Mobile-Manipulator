@@ -7,6 +7,8 @@ endif()
 
 # find dependencies
 find_package(ament_cmake REQUIRED)
+find_package(urdf_tutorial REQUIRED)
+find_package(urdf_sim_tutorial REQUIRED)
 # further dependencies manually.
 # find_package(<dependency> REQUIRED)
 

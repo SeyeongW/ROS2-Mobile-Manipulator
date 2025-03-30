@@ -14,6 +14,7 @@
     <include file="$(find-pkg-share gazebo_ros)/launch/gazebo.launch.py">
         <arg name="world" value="$(var world)" />
         <arg name="verbose" value="true" />
+        <arg name="gui_required" value="true" />
     </include>
 
     <!-- Spawn URDF model node -->

@@ -28,7 +28,8 @@ RUN apt-get update && apt-get install -y \
 RUN apt-get update && apt-get install -y \
     ros-${ROS_DISTRO}-robot-state-publisher \
     ros-${ROS_DISTRO}-joint-state-publisher \
-    ros-${ROS_DISTRO}-urdf-tutorial
+    ros-${ROS_DISTRO}-urdf-tutorial \
+    ros-${ROS_DISTRO}-urdf-sim-tutorial
 
 RUN apt-get update && apt-get install -y \
     ros-${ROS_DISTRO}-cv-bridge \
