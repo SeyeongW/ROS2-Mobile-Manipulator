@@ -15,6 +15,7 @@ if [ "$OS_SIMPLE" == "d" ] || [ "$OS_SIMPLE" == "m" ]; then
 else
     docker run --privileged --rm -it \
         --name $CONTAINER_NAME \
+        --device /dev/dri \
         -e DISPLAY \
         -e TERM \
         -e QT_X11_NO_MITSHM=1 \

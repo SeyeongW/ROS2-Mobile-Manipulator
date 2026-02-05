@@ -19,12 +19,18 @@ RUN apt update && apt install -y \
     net-tools
 
 RUN apt-get update && apt-get install -y \
-    ros-${ROS_DISTRO}-navigation2 \
-    ros-${ROS_DISTRO}-nav2-bringup \
-    ros-${ROS_DISTRO}-turtlebot3*
+    ros-${ROS_DISTRO}-ros2-control* \
+    ros-${ROS_DISTRO}-joint-state-publisher
 
 RUN apt-get update && apt-get install -y \
-    ros-${ROS_DISTRO}-robot-localization 
+    ros-${ROS_DISTRO}-navigation2 \
+    ros-${ROS_DISTRO}-nav2-bringup \
+    ros-${ROS_DISTRO}-robot-localization
+
+RUN apt-get update && apt-get install -y \
+    ros-${ROS_DISTRO}-ros-gz-*
+
+ENV GZ_VERSION=fortress
 
 COPY ./autostart.sh /${WS_ROS}
 RUN chmod +x /${WS_ROS}/autostart.sh
