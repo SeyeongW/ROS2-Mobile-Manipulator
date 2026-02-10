@@ -106,8 +106,6 @@
 
     <!-- Lidar specifications -->
     <xacro:property name="mass_lidar" value="0.046" />
-    <xacro:property name="lidar_model" value="HLS-LFCD-LDS" />
-    <xacro:property name="lidar_link" value="lidar_link" />
     <xacro:property name="lidar_samples" value="720" />
     <xacro:property name="lidar_max_range" value="12.0" />
     <xacro:property name="lidar_min_range" value="0.03" />
