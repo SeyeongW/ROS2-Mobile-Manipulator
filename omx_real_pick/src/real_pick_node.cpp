@@ -121,6 +121,8 @@ int main(int argc, char** argv) {
   // Pick distances (이건 “마커 중심으로 가서 집기” 기반이라 단순화)
   const double pregrasp_dx = 0.12; // base x 방향으로 살짝 앞에서 대기
   const double final_dx    = 0.03; // 더 가까이
+  const double lift_dist     = 0.10;
+
 
   // Cartesian
   const double cart_step     = 0.01;
