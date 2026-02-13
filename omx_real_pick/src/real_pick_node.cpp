@@ -1,11 +1,3 @@
-// real_pick_node.cpp
-// OpenManipulator-X: WAIT (no sweep) + pick closest visible ArUco marker
-//  - Subscribes /aruco/markers to choose closest (min z) marker id
-//  - Uses TF (link1 -> aruco_marker_<id>) and a 2-stage approach:
-//      1) XY_ALIGN at fixed z_safe
-//      2) DESCEND in steps to z_final
-//  - Avoids target_z = mz + hover_offset (bad when camera is on end-effector)
-
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp_action/rclcpp_action.hpp>
 
@@ -14,16 +6,20 @@
 
 #include <tf2_ros/transform_listener.h>
 #include <tf2_ros/buffer.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
+
+#include <geometry_msgs/msg/pose.hpp>
+#include <geometry_msgs/msg/transform_stamped.hpp>
 
 #include <ros2_aruco_interfaces/msg/aruco_markers.hpp>
 
 #include <chrono>
-#include <cmath>
 #include <thread>
+#include <mutex>
 #include <vector>
 #include <deque>
 #include <algorithm>
-#include <mutex>
+#include <cmath>
 #include <string>
 
 using namespace std::chrono_literals;
@@ -34,8 +30,13 @@ using ArucoMarkers   = ros2_aruco_interfaces::msg::ArucoMarkers;
 static double clamp(double v, double lo, double hi) {
   return std::max(lo, std::min(hi, v));
 }
-static bool isFinite(double v) {
-  return std::isfinite(v);
+static bool isFinite(double v) { return std::isfinite(v); }
+
+static double dist3(const geometry_msgs::msg::Point& a, const geometry_msgs::msg::Point& b) {
+  const double dx = a.x - b.x;
+  const double dy = a.y - b.y;
+  const double dz = a.z - b.z;
+  return std::sqrt(dx*dx + dy*dy + dz*dz);
 }
 
 static void operateGripper(rclcpp::Node::SharedPtr node,
@@ -54,25 +55,26 @@ static void operateGripper(rclcpp::Node::SharedPtr node,
 }
 
 enum class FSM {
-  WAIT,          // idle at home/current pose until marker TF is fresh
-  STABILIZE,     // require N consecutive fresh TFs, median filter
-  APPROACH,      // 2-stage: XY_ALIGN then DESCEND
+  HOME_INIT,     // start -> go home
+  WAIT_MARKER,   // idle until a marker is stably visible
+  PREGRASP,      // plan to pregrasp pose
+  APPROACH,      // cartesian straight-line to final pose
   GRASP,         // close gripper
-  LIFT_AND_HOME  // lift and go home
+  LIFT_HOME      // lift and return home
 };
-
-enum class ApproachStage { XY_ALIGN, DESCEND };
 
 int main(int argc, char** argv) {
   rclcpp::init(argc, argv);
 
   auto node = std::make_shared<rclcpp::Node>("real_pick_node");
+
+  // Spin in background (MoveIt action/result callbacks etc.)
   auto exec = std::make_shared<rclcpp::executors::SingleThreadedExecutor>();
   exec->add_node(node);
   std::thread spinner([&exec](){ exec->spin(); });
 
   // ---------------- TF ----------------
-  auto tf_buffer   = std::make_unique<tf2_ros::Buffer>(node->get_clock());
+  auto tf_buffer  = std::make_unique<tf2_ros::Buffer>(node->get_clock());
   auto tf_listener = std::make_shared<tf2_ros::TransformListener>(*tf_buffer);
 
   // --------------- MoveIt -------------
@@ -81,323 +83,327 @@ int main(int argc, char** argv) {
   arm.setMaxAccelerationScalingFactor(0.15);
   arm.setPlanningTime(5.0);
 
-  // position-only (4DOF)
-  arm.setGoalPositionTolerance(0.03);
-  arm.setGoalOrientationTolerance(3.14);
+  // Position + orientation targets (orientation is important to avoid flipping)
+  arm.setGoalPositionTolerance(0.01);     // 1 cm
+  arm.setGoalOrientationTolerance(0.25);  // ~14 deg (tune)
 
   // -------------- Gripper -------------
   auto gripper = rclcpp_action::create_client<GripperCommand>(
       node, "/gripper_controller/gripper_cmd");
 
-  // ---------- USER SETTINGS ----------
-  std::string base_frame    = "link1";          // robot base frame used for planning targets
-  std::string markers_topic = "/aruco/markers"; // published by your aruco node
+  // ---------- SETTINGS ----------
+  const std::string base_frame    = "link1";
+  const std::string markers_topic = "/aruco/markers";
 
-  // Gripper positions (may differ by setup)
   const double GRIP_OPEN  = 0.019;
   const double GRIP_CLOSE = -0.001;
 
-  // TF freshness cutoff
-  double max_tf_age_sec = 1.5;
+  // TF freshness + stabilization
+  const double max_tf_age_sec = 1.0;
+  const int stable_need = 5;
+  int stable_count = 0;
 
-  // Stabilization
-  int stable_need = 5;
+  // Marker selection bounds (from /aruco/markers camera-depth)
+  const double marker_z_min = 0.05;
+  const double marker_z_max = 2.00;
+
+  // Grasp pipeline tuning
+  const double pregrasp_dist   = 0.12;   // 12 cm away from marker along normal
+  const double grasp_dist      = 0.03;   // final offset from marker plane along normal
+  const double lift_dist       = 0.10;   // lift after grasp
+  const double cart_step       = 0.01;   // 1 cm cartesian step
+  const double cart_jump_th    = 0.0;    // disable big joint jumps
+  const double min_cart_frac   = 0.85;   // require >= 85% path fraction
+
+  // "Reached grasp pose?" tolerance (position)
+  const double grasp_pos_tol   = 0.02;   // 2 cm
+
+  // If your gripper frame doesn't align with marker frame, apply a fixed quaternion offset.
+  // Start with identity. If gripper approaches sideways, change these.
+  const double off_r = 0.0;  // roll
+  const double off_p = 0.0;  // pitch
+  const double off_y = 0.0;  // yaw
 
   // Failure handling
-  int max_fail_before_wait = 3;
+  int fail_count = 0;
+  const int max_fail = 3;
 
-  // Filtering window (median)
-  const size_t FILTER_N = 7;
-  std::deque<double> fx, fy, fz;
-
-  auto push_and_median = [&](std::deque<double>& dq, double v) -> double {
-    dq.push_back(v);
-    if (dq.size() > FILTER_N) dq.pop_front();
-    std::vector<double> tmp(dq.begin(), dq.end());
-    std::sort(tmp.begin(), tmp.end());
-    return tmp[tmp.size()/2];
-  };
-
-  // ---- 2-stage approach parameters (tune here) ----
-  double final_min_z  = 0.04;  // hard floor (avoid table/ground)
-  double z_safe       = 0.25;  // stage1: XY alignment height (in base_frame)
-  double z_final      = 0.12;  // stage2: final descend height before grasp
-  double z_step_down  = 0.03;  // descend step
-  double max_xy       = 0.25;  // clamp XY to avoid unreachable goals
-  double max_z        = 0.35;  // clamp Z to avoid unreachable goals (conservative)
-
-  // ---------- /aruco/markers latest cache ----------
+  // ---------- /aruco/markers cache ----------
   std::mutex mk_mtx;
-  ArucoMarkers latest_markers;
+  ArucoMarkers latest;
   bool have_markers = false;
 
-  auto markers_sub = node->create_subscription<ArucoMarkers>(
+  auto sub = node->create_subscription<ArucoMarkers>(
     markers_topic, 10,
     [&](const ArucoMarkers::SharedPtr msg){
       std::lock_guard<std::mutex> lk(mk_mtx);
-      latest_markers = *msg;
+      latest = *msg;
       have_markers = true;
     }
   );
 
-  // Choose closest marker by min pose.z in /aruco/markers (camera frame depth)
-  auto selectClosestId = [&]() -> int {
+  auto selectClosestMarkerId = [&]() -> int {
     std::lock_guard<std::mutex> lk(mk_mtx);
     if (!have_markers) return -1;
-    if (latest_markers.marker_ids.size() != latest_markers.poses.size()) return -1;
-    if (latest_markers.marker_ids.empty()) return -1;
+    if (latest.marker_ids.size() != latest.poses.size()) return -1;
+    if (latest.marker_ids.empty()) return -1;
 
     int best_id = -1;
     double best_z = 1e9;
 
-    for (size_t i=0; i<latest_markers.marker_ids.size(); i++) {
-      const auto &p = latest_markers.poses[i].position;
-      double z = p.z;
-      if (!isFinite(z) || z <= 0.02 || z > 2.0) continue;
+    for (size_t i = 0; i < latest.marker_ids.size(); i++) {
+      const double z = latest.poses[i].position.z;
+      if (!isFinite(z) || z < marker_z_min || z > marker_z_max) continue;
       if (z < best_z) {
         best_z = z;
-        best_id = latest_markers.marker_ids[i];
+        best_id = latest.marker_ids[i];
       }
     }
     return best_id;
   };
 
-  // Get fresh TF from base_frame to the marker frame
   auto getFreshMarkerTF = [&](const std::string& target_marker_frame,
-                              double& ox, double& oy, double& oz) -> bool
+                              geometry_msgs::msg::TransformStamped& out) -> bool
   {
     try {
-      if (!tf_buffer->canTransform(base_frame, target_marker_frame, tf2::TimePointZero, 50ms)) {
+      if (!tf_buffer->canTransform(base_frame, target_marker_frame, tf2::TimePointZero, 50ms))
         return false;
-      }
+
       auto t = tf_buffer->lookupTransform(base_frame, target_marker_frame, tf2::TimePointZero);
 
       rclcpp::Time now = node->get_clock()->now();
-      rclcpp::Time stamp = t.header.stamp;
-      double age = (now - stamp).seconds();
+      rclcpp::Time stamp = rclcpp::Time(t.header.stamp);
+      const double age = (now - stamp).seconds();
+      if (age > max_tf_age_sec) return false;
 
-      if (age > max_tf_age_sec) {
-        RCLCPP_WARN_THROTTLE(node->get_logger(), *node->get_clock(), 1000,
-                             "TF too old: %.2fs (ignore) frame=%s",
-                             age, target_marker_frame.c_str());
-        return false;
-      }
+      // sanity
+      const auto &tr = t.transform.translation;
+      if (!isFinite(tr.x) || !isFinite(tr.y) || !isFinite(tr.z)) return false;
 
-      double x = t.transform.translation.x;
-      double y = t.transform.translation.y;
-      double z = t.transform.translation.z;
-
-      if (!isFinite(x) || !isFinite(y) || !isFinite(z)) return false;
-
-      // median filtering
-      ox = push_and_median(fx, x);
-      oy = push_and_median(fy, y);
-      oz = push_and_median(fz, z);
-
+      out = t;
       return true;
     } catch (...) {
       return false;
     }
   };
 
-  // ---------- INIT ----------
-  RCLCPP_INFO(node->get_logger(), ">> HOME");
-  arm.setNamedTarget("home");
-  arm.move();
-  rclcpp::sleep_for(800ms);
+  auto tfToPose = [&](const geometry_msgs::msg::TransformStamped& t) -> geometry_msgs::msg::Pose {
+    geometry_msgs::msg::Pose p;
+    p.position.x = t.transform.translation.x;
+    p.position.y = t.transform.translation.y;
+    p.position.z = t.transform.translation.z;
+    p.orientation = t.transform.rotation;
+    return p;
+  };
 
-  operateGripper(node, gripper, GRIP_OPEN);
+  // marker frame z-axis in base frame: R(q_marker) * (0,0,1)
+  auto markerZAxisInBase = [&](const geometry_msgs::msg::Pose& marker_pose) -> tf2::Vector3 {
+    tf2::Quaternion q;
+    tf2::fromMsg(marker_pose.orientation, q);
+    tf2::Matrix3x3 R(q);
+    return R * tf2::Vector3(0,0,1);
+  };
 
-  FSM state = FSM::WAIT;
+  auto applyOrientationOffset = [&](const geometry_msgs::msg::Quaternion& q_in) -> geometry_msgs::msg::Quaternion {
+    tf2::Quaternion q_marker, q_off;
+    tf2::fromMsg(q_in, q_marker);
+    q_off.setRPY(off_r, off_p, off_y);
+    tf2::Quaternion q_goal = q_marker * q_off;
+    q_goal.normalize();
+    return tf2::toMsg(q_goal);
+  };
 
-  int stable_count = 0;
-  int approach_fail = 0;
+  // ---------- FSM state ----------
+  FSM state = FSM::HOME_INIT;
 
-  // current target marker
   int target_id = -1;
-  std::string target_marker_frame;
+  std::string target_frame;
 
-  // filtered marker pose in base_frame
-  double mx=0, my=0, mz=0;
-
-  // approach sub-stage
-  ApproachStage approach_stage = ApproachStage::XY_ALIGN;
-  double current_z_cmd = z_safe;
+  geometry_msgs::msg::Pose pregrasp_pose;
+  geometry_msgs::msg::Pose final_pose;
 
   rclcpp::Rate rate(10);
 
   while (rclcpp::ok()) {
-    // 1) choose best marker id
-    int best_id = selectClosestId();
-
-    // 2) if target changes, reset filters/stability
-    if (best_id != target_id) {
-      target_id = best_id;
-      stable_count = 0;
-      fx.clear(); fy.clear(); fz.clear();
-
-      if (target_id >= 0) {
-        target_marker_frame = "aruco_marker_" + std::to_string(target_id);
-        RCLCPP_INFO(node->get_logger(), ">> Target marker set to ID=%d (%s)",
-                    target_id, target_marker_frame.c_str());
-      } else {
-        target_marker_frame.clear();
-      }
-    }
-
-    // 3) get fresh TF for current target
-    bool visible = false;
-    if (!target_marker_frame.empty()) {
-      visible = getFreshMarkerTF(target_marker_frame, mx, my, mz);
-    }
-
     switch (state) {
-      case FSM::WAIT: {
-        stable_count = 0;
-        fx.clear(); fy.clear(); fz.clear();
 
-        if (visible) {
-          RCLCPP_INFO(node->get_logger(), ">> Marker seen (ID=%d). Switching to STABILIZE", target_id);
-          state = FSM::STABILIZE;
-        } else {
-          RCLCPP_INFO_THROTTLE(node->get_logger(), *node->get_clock(), 2000,
-                               ">> WAITING... (no fresh marker TF)");
-        }
+      case FSM::HOME_INIT: {
+        RCLCPP_INFO(node->get_logger(), ">> HOME_INIT: moving to 'home' and opening gripper");
+        arm.setNamedTarget("home");
+        arm.move();
+        rclcpp::sleep_for(500ms);
+
+        operateGripper(node, gripper, GRIP_OPEN);
+
+        stable_count = 0;
+        fail_count = 0;
+        target_id = -1;
+        target_frame.clear();
+
+        state = FSM::WAIT_MARKER;
         break;
       }
 
-      case FSM::STABILIZE: {
-        if (!visible) {
+      case FSM::WAIT_MARKER: {
+        const int best = selectClosestMarkerId();
+        if (best < 0) {
           stable_count = 0;
-          RCLCPP_WARN(node->get_logger(), ">> Lost marker TF. Back to WAIT");
-          state = FSM::WAIT;
+          RCLCPP_INFO_THROTTLE(node->get_logger(), *node->get_clock(), 2000,
+                               ">> WAIT_MARKER: no marker yet");
+          break;
+        }
+
+        if (best != target_id) {
+          target_id = best;
+          target_frame = "aruco_marker_" + std::to_string(target_id);
+          stable_count = 0;
+          RCLCPP_INFO(node->get_logger(), ">> Target marker set to ID=%d (%s)",
+                      target_id, target_frame.c_str());
+        }
+
+        geometry_msgs::msg::TransformStamped t_base_marker;
+        if (!getFreshMarkerTF(target_frame, t_base_marker)) {
+          stable_count = 0;
           break;
         }
 
         stable_count++;
-        RCLCPP_INFO(node->get_logger(), ">> STABILIZE %d/%d (ID=%d x=%.3f y=%.3f z=%.3f)",
-                    stable_count, stable_need, target_id, mx, my, mz);
+        auto marker_pose = tfToPose(t_base_marker);
+        RCLCPP_INFO(node->get_logger(), ">> STABLE %d/%d  marker(base)=(%.3f %.3f %.3f)",
+                    stable_count, stable_need,
+                    marker_pose.position.x, marker_pose.position.y, marker_pose.position.z);
 
-        if (stable_count >= stable_need) {
-          approach_fail = 0;
-          approach_stage = ApproachStage::XY_ALIGN;
-          current_z_cmd = z_safe;
-          RCLCPP_INFO(node->get_logger(), ">> STABILIZE done. Switching to APPROACH (2-stage)");
-          state = FSM::APPROACH;
+        if (stable_count < stable_need) break;
+
+        // Build pregrasp/final poses from marker pose
+        tf2::Vector3 z_axis = markerZAxisInBase(marker_pose);
+
+        // If your approach goes to the "wrong side", flip this once:
+        // z_axis = -z_axis;
+
+        // Orientation goal = marker orientation (optionally with fixed offset)
+        geometry_msgs::msg::Quaternion q_goal = applyOrientationOffset(marker_pose.orientation);
+
+        // Final pose: near marker along its normal (slightly away from plane)
+        final_pose = marker_pose;
+        final_pose.orientation = q_goal;
+        final_pose.position.x += z_axis.x() * grasp_dist;
+        final_pose.position.y += z_axis.y() * grasp_dist;
+        final_pose.position.z += z_axis.z() * grasp_dist;
+
+        // Pregrasp pose: farther away along same normal
+        pregrasp_pose = marker_pose;
+        pregrasp_pose.orientation = q_goal;
+        pregrasp_pose.position.x += z_axis.x() * pregrasp_dist;
+        pregrasp_pose.position.y += z_axis.y() * pregrasp_dist;
+        pregrasp_pose.position.z += z_axis.z() * pregrasp_dist;
+
+        RCLCPP_INFO(node->get_logger(),
+                    ">> Built poses: pre(%.3f %.3f %.3f) final(%.3f %.3f %.3f)",
+                    pregrasp_pose.position.x, pregrasp_pose.position.y, pregrasp_pose.position.z,
+                    final_pose.position.x,  final_pose.position.y,  final_pose.position.z);
+
+        state = FSM::PREGRASP;
+        break;
+      }
+
+      case FSM::PREGRASP: {
+        RCLCPP_INFO(node->get_logger(), ">> PREGRASP: planning to pregrasp pose");
+        arm.setStartStateToCurrentState();
+        arm.setPoseTarget(pregrasp_pose);
+
+        auto res = arm.move();
+        if (res != moveit::core::MoveItErrorCode::SUCCESS) {
+          fail_count++;
+          RCLCPP_ERROR(node->get_logger(), "PREGRASP failed (%d/%d)", fail_count, max_fail);
+          if (fail_count >= max_fail) state = FSM::HOME_INIT;
+          else state = FSM::WAIT_MARKER;
+          break;
         }
+
+        fail_count = 0;
+        state = FSM::APPROACH;
         break;
       }
 
       case FSM::APPROACH: {
-        if (!visible) {
-          RCLCPP_WARN(node->get_logger(), ">> Lost marker during approach. Back to STABILIZE");
-          stable_count = 0;
-          state = FSM::STABILIZE;
+        RCLCPP_INFO(node->get_logger(), ">> APPROACH: cartesian to final pose");
+        std::vector<geometry_msgs::msg::Pose> waypoints;
+        waypoints.push_back(final_pose);
+
+        moveit_msgs::msg::RobotTrajectory traj;
+        arm.setStartStateToCurrentState();
+        const double frac = arm.computeCartesianPath(waypoints, cart_step, cart_jump_th, traj);
+
+        RCLCPP_INFO(node->get_logger(), ">> Cartesian fraction=%.2f", frac);
+
+        if (frac < min_cart_frac) {
+          fail_count++;
+          RCLCPP_ERROR(node->get_logger(), "Cartesian path too low (%.2f) (%d/%d)", frac, fail_count, max_fail);
+          if (fail_count >= max_fail) state = FSM::HOME_INIT;
+          else state = FSM::WAIT_MARKER;
           break;
         }
 
-        // Clamp XY (avoid impossible goals)
-        double tx = clamp(mx, -max_xy, max_xy);
-        double ty = clamp(my, -max_xy, max_xy);
+        moveit::planning_interface::MoveGroupInterface::Plan plan;
+        plan.trajectory_ = traj;
 
-        // Clamp Z bounds
-        double z_safe_clamped  = clamp(z_safe,  final_min_z + 0.05, max_z);
-        double z_final_clamped = clamp(z_final, final_min_z,        z_safe_clamped);
-
-        if (approach_stage == ApproachStage::XY_ALIGN) {
-          double tz = z_safe_clamped;
-
-          RCLCPP_INFO(node->get_logger(),
-                      ">> APPROACH[XY_ALIGN] target=(%.3f, %.3f, %.3f)", tx, ty, tz);
-
-          arm.setStartStateToCurrentState();
-          arm.setPositionTarget(tx, ty, tz);
-
-          auto result = arm.move();
-
-          if (result == moveit::core::MoveItErrorCode::SUCCESS) {
-            approach_fail = 0;
-            approach_stage = ApproachStage::DESCEND;
-            current_z_cmd = z_safe_clamped;
-            RCLCPP_INFO(node->get_logger(), ">> XY aligned. Switching to DESCEND");
-          } else {
-            approach_fail++;
-            RCLCPP_ERROR(node->get_logger(), "XY_ALIGN move failed (%d/%d).",
-                         approach_fail, max_fail_before_wait);
-
-            if (approach_fail >= max_fail_before_wait) {
-              RCLCPP_WARN(node->get_logger(), ">> Too many failures. Back to WAIT");
-              state = FSM::WAIT;
-            }
-          }
+        auto exec_res = arm.execute(plan);
+        if (exec_res != moveit::core::MoveItErrorCode::SUCCESS) {
+          fail_count++;
+          RCLCPP_ERROR(node->get_logger(), "Cartesian execute failed (%d/%d)", fail_count, max_fail);
+          if (fail_count >= max_fail) state = FSM::HOME_INIT;
+          else state = FSM::WAIT_MARKER;
           break;
         }
 
-        if (approach_stage == ApproachStage::DESCEND) {
-          // step down toward final height
-          current_z_cmd -= z_step_down;
-          if (current_z_cmd < z_final_clamped) current_z_cmd = z_final_clamped;
+        // --------- "Reached grasp pose?" 판단 ----------
+        // 1) MoveIt 실행 성공
+        // 2) 실제 end-effector pose가 final_pose와 충분히 가까움 (position error < grasp_pos_tol)
+        auto ee = arm.getCurrentPose().pose;
+        const double err = dist3(ee.position, final_pose.position);
 
-          double tz = current_z_cmd;
+        RCLCPP_INFO(node->get_logger(), ">> EE position error to final: %.3f m", err);
 
-          RCLCPP_INFO(node->get_logger(),
-                      ">> APPROACH[DESCEND] z=%.3f (final=%.3f) target=(%.3f, %.3f, %.3f)",
-                      tz, z_final_clamped, tx, ty, tz);
-
-          arm.setStartStateToCurrentState();
-          arm.setPositionTarget(tx, ty, tz);
-
-          auto result = arm.move();
-
-          if (result == moveit::core::MoveItErrorCode::SUCCESS) {
-            approach_fail = 0;
-            if (std::abs(current_z_cmd - z_final_clamped) < 1e-3) {
-              RCLCPP_INFO(node->get_logger(), ">> Reached final height. Switching to GRASP");
-              state = FSM::GRASP;
-            }
-          } else {
-            approach_fail++;
-            RCLCPP_ERROR(node->get_logger(), "DESCEND move failed (%d/%d).",
-                         approach_fail, max_fail_before_wait);
-
-            if (approach_fail >= max_fail_before_wait) {
-              RCLCPP_WARN(node->get_logger(), ">> Too many failures. Back to WAIT");
-              state = FSM::WAIT;
-            } else {
-              // on failure, retreat a bit upward then retry
-              current_z_cmd = std::min(z_safe_clamped, current_z_cmd + 0.05);
-            }
-          }
-          break;
+        if (err <= grasp_pos_tol) {
+          state = FSM::GRASP;
+        } else {
+          // 아직 멀면 다시 WAIT로 (혹은 재-approach 로직 넣어도 됨)
+          RCLCPP_WARN(node->get_logger(), ">> Not close enough to grasp. Back to WAIT_MARKER");
+          state = FSM::WAIT_MARKER;
         }
-
         break;
       }
 
       case FSM::GRASP: {
-        RCLCPP_INFO(node->get_logger(), ">> GRASPING! (ID=%d)", target_id);
+        RCLCPP_INFO(node->get_logger(), ">> GRASP: closing gripper");
         operateGripper(node, gripper, GRIP_CLOSE);
-        state = FSM::LIFT_AND_HOME;
+        state = FSM::LIFT_HOME;
         break;
       }
 
-      case FSM::LIFT_AND_HOME: {
-        // Lift to safe height (do NOT use mz+offset; camera-on-EE makes that unstable)
-        double lift_z = clamp(z_safe, final_min_z + 0.10, max_z);
+      case FSM::LIFT_HOME: {
+        RCLCPP_INFO(node->get_logger(), ">> LIFT_HOME: lifting and returning home");
 
-        RCLCPP_INFO(node->get_logger(), ">> LIFT to z=%.3f then HOME", lift_z);
+        // lift straight up in base frame
+        auto ee = arm.getCurrentPose().pose;
+        geometry_msgs::msg::Pose lift_pose = ee;
+        lift_pose.position.z += lift_dist;
 
         arm.setStartStateToCurrentState();
-        arm.setPositionTarget(clamp(mx, -max_xy, max_xy), clamp(my, -max_xy, max_xy), lift_z);
+        arm.setPoseTarget(lift_pose);
         arm.move();
 
         arm.setNamedTarget("home");
         arm.move();
 
-        operateGripper(node, gripper, GRIP_OPEN);
+        // (옵션) 놓기
+        // operateGripper(node, gripper, GRIP_OPEN);
 
-        RCLCPP_INFO(node->get_logger(), ">> Done. Back to WAIT");
-        state = FSM::WAIT;
+        // 반복 동작
+        stable_count = 0;
+        fail_count = 0;
+        state = FSM::WAIT_MARKER;
         break;
       }
     }
