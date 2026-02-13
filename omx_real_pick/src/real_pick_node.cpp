@@ -1,10 +1,13 @@
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp_action/rclcpp_action.hpp>
+
 #include <control_msgs/action/gripper_command.hpp>
 #include <moveit/move_group_interface/move_group_interface.h>
 
 #include <tf2_ros/transform_listener.h>
 #include <tf2_ros/buffer.h>
+
+#include <ros2_aruco_interfaces/msg/aruco_markers.hpp>
 
 #include <chrono>
 #include <cmath>
@@ -12,9 +15,13 @@
 #include <vector>
 #include <deque>
 #include <algorithm>
+#include <mutex>
+#include <string>
+
+using namespace std::chrono_literals;
 
 using GripperCommand = control_msgs::action::GripperCommand;
-using namespace std::chrono_literals;
+using ArucoMarkers   = ros2_aruco_interfaces::msg::ArucoMarkers;
 
 static bool isFinite(double v) { return std::isfinite(v); }
 
@@ -34,8 +41,8 @@ void operateGripper(rclcpp::Node::SharedPtr node,
 }
 
 enum class FSM {
-  WAIT,          // 가만히 대기
-  STABILIZE,     // N번 연속 fresh TF 확보 + 필터
+  WAIT,          // 가만히 대기 (마커 보이면 STABILIZE)
+  STABILIZE,     // 동일 ID를 N번 연속으로 "fresh TF"로 확인
   APPROACH,      // step-down 접근
   GRASP,         // 집기
   LIFT_AND_HOME  // 들어올리고 홈
@@ -44,43 +51,50 @@ enum class FSM {
 int main(int argc, char** argv) {
   rclcpp::init(argc, argv);
 
-  auto node = std::make_shared<rclcpp::Node>("omx_real_picker_static_wait");
+  auto node = std::make_shared<rclcpp::Node>("omx_real_picker_any_id_wait");
   auto exec = std::make_shared<rclcpp::executors::SingleThreadedExecutor>();
   exec->add_node(node);
   std::thread spinner([&exec](){ exec->spin(); });
 
-  // TF
-  auto tf_buffer = std::make_unique<tf2_ros::Buffer>(node->get_clock());
+  // ---------------- TF ----------------
+  auto tf_buffer  = std::make_unique<tf2_ros::Buffer>(node->get_clock());
   auto tf_listener = std::make_shared<tf2_ros::TransformListener>(*tf_buffer);
 
-  // MoveIt
+  // --------------- MoveIt -------------
   moveit::planning_interface::MoveGroupInterface arm(node, "arm");
   arm.setMaxVelocityScalingFactor(0.15);
   arm.setMaxAccelerationScalingFactor(0.15);
   arm.setPlanningTime(5.0);
 
   // position only
-  arm.setGoalPositionTolerance(0.03);      // 3cm
-  arm.setGoalOrientationTolerance(3.14);   // ignore
+  arm.setGoalPositionTolerance(0.03);
+  arm.setGoalOrientationTolerance(3.14);
 
-  // Gripper
+  // -------------- Gripper -------------
   auto gripper = rclcpp_action::create_client<GripperCommand>(
       node, "/gripper_controller/gripper_cmd");
 
-  // ---------- SETTINGS ----------
-  std::string base_frame = "link1";
-  std::string target_marker = "aruco_marker_0";
+  // ---------- USER SETTINGS ----------
+  std::string base_frame = "link1";          // 로봇 기준 프레임(네 환경에 맞게)
+  std::string markers_topic = "/aruco/markers";
 
+  // Gripper positions (환경마다 다를 수 있음)
   double GRIP_OPEN  = 0.019;
   double GRIP_CLOSE = -0.001;
 
   // APPROACH params
-  double hover_offset = 0.15;     // 위에서 시작
-  double step = 0.03;             // 접근 step
-  double final_min_z = 0.04;      // 바닥 박힘 방지
-  double max_tf_age_sec = 1.5;    // ✅ 조금 넉넉히 (카메라/검출 끊김 허용)
-  int    stable_need = 5;         // 연속 N회 안정화
-  int    max_fail_before_wait = 3;
+  double hover_offset = 0.15;
+  double step         = 0.03;
+  double final_min_z  = 0.04;
+
+  // TF 신선도 기준 (카메라 FPS/검출 끊김 고려해서 넉넉히)
+  double max_tf_age_sec = 1.5;
+
+  // 같은 ID가 연속 N번 "fresh TF"로 잡혀야 안정화 완료
+  int stable_need = 5;
+
+  // move 실패 허용
+  int max_fail_before_wait = 3;
 
   // filtering window (median)
   const size_t FILTER_N = 7;
@@ -94,28 +108,51 @@ int main(int argc, char** argv) {
     return tmp[tmp.size()/2];
   };
 
-  // ---------- INIT ----------
-  RCLCPP_INFO(node->get_logger(), ">> HOME");
-  arm.setNamedTarget("home");
-  arm.move();
-  rclcpp::sleep_for(800ms);
+  // ---------- /aruco/markers 최신값 저장 ----------
+  std::mutex mk_mtx;
+  ArucoMarkers latest_markers;
+  bool have_markers = false;
 
-  operateGripper(node, gripper, GRIP_OPEN);
+  auto markers_sub = node->create_subscription<ArucoMarkers>(
+    markers_topic, 10,
+    [&](const ArucoMarkers::SharedPtr msg){
+      std::lock_guard<std::mutex> lk(mk_mtx);
+      latest_markers = *msg;
+      have_markers = true;
+    }
+  );
 
-  FSM state = FSM::WAIT;
-  int stable_count = 0;
-  int approach_fail = 0;
-  double current_offset = hover_offset;
+  // ---------- "현재 보이는 마커 중 가장 가까운 ID" 선택 ----------
+  auto selectClosestId = [&]() -> int {
+    std::lock_guard<std::mutex> lk(mk_mtx);
+    if (!have_markers) return -1;
+    if (latest_markers.marker_ids.size() != latest_markers.poses.size()) return -1;
+    if (latest_markers.marker_ids.empty()) return -1;
 
-  // filtered marker
-  double mx=0, my=0, mz=0;
+    int best_id = -1;
+    double best_z = 1e9;
 
-  auto getFreshMarker = [&](double& ox, double& oy, double& oz) -> bool {
+    for (size_t i=0; i<latest_markers.marker_ids.size(); i++) {
+      const auto &p = latest_markers.poses[i].position;
+      double z = p.z;
+      if (!isFinite(z) || z <= 0.02 || z > 2.0) continue;
+      if (z < best_z) {
+        best_z = z;
+        best_id = latest_markers.marker_ids[i];
+      }
+    }
+    return best_id;
+  };
+
+  // ---------- 선택된 마커 TF를 base_frame 기준으로 "fresh"하게 얻기 ----------
+  auto getFreshMarkerTF = [&](const std::string& target_marker_frame,
+                              double& ox, double& oy, double& oz) -> bool
+  {
     try {
-      if (!tf_buffer->canTransform(base_frame, target_marker, tf2::TimePointZero, 50ms)) {
+      if (!tf_buffer->canTransform(base_frame, target_marker_frame, tf2::TimePointZero, 50ms)) {
         return false;
       }
-      auto t = tf_buffer->lookupTransform(base_frame, target_marker, tf2::TimePointZero);
+      auto t = tf_buffer->lookupTransform(base_frame, target_marker_frame, tf2::TimePointZero);
 
       rclcpp::Time now = node->get_clock()->now();
       rclcpp::Time stamp = t.header.stamp;
@@ -123,7 +160,8 @@ int main(int argc, char** argv) {
 
       if (age > max_tf_age_sec) {
         RCLCPP_WARN_THROTTLE(node->get_logger(), *node->get_clock(), 1000,
-                             "TF too old: %.2fs (ignore)", age);
+                             "TF too old: %.2fs (ignore) frame=%s",
+                             age, target_marker_frame.c_str());
         return false;
       }
 
@@ -136,30 +174,72 @@ int main(int argc, char** argv) {
       ox = push_and_median(fx, x);
       oy = push_and_median(fy, y);
       oz = push_and_median(fz, z);
-
       return true;
     } catch (...) {
       return false;
     }
   };
 
+  // ---------- INIT ----------
+  RCLCPP_INFO(node->get_logger(), ">> HOME");
+  arm.setNamedTarget("home");
+  arm.move();
+  rclcpp::sleep_for(800ms);
+
+  operateGripper(node, gripper, GRIP_OPEN);
+
+  FSM state = FSM::WAIT;
+
+  int stable_count = 0;
+  int approach_fail = 0;
+
+  double current_offset = hover_offset;
+
+  // 목표 마커 ID/프레임
+  int target_id = -1;
+  std::string target_marker_frame;
+
+  // filtered marker pose (base_frame 기준)
+  double mx=0, my=0, mz=0;
+
   rclcpp::Rate rate(10);
 
   while (rclcpp::ok()) {
-    bool visible = getFreshMarker(mx, my, mz);
+
+    // 1) 현재 보이는 마커 중 가장 가까운 ID 선택
+    int best_id = selectClosestId();
+
+    // 2) 타겟 ID가 바뀌면 필터/카운트 리셋
+    if (best_id != target_id) {
+      target_id = best_id;
+      stable_count = 0;
+      fx.clear(); fy.clear(); fz.clear();
+      if (target_id >= 0) {
+        target_marker_frame = "aruco_marker_" + std::to_string(target_id);
+        RCLCPP_INFO(node->get_logger(), ">> Target marker set to ID=%d (%s)",
+                    target_id, target_marker_frame.c_str());
+      } else {
+        target_marker_frame.clear();
+      }
+    }
+
+    // 3) target_marker_frame이 있으면 TF로 pose 얻기
+    bool visible = false;
+    if (!target_marker_frame.empty()) {
+      visible = getFreshMarkerTF(target_marker_frame, mx, my, mz);
+    }
 
     switch (state) {
       case FSM::WAIT: {
-        // ✅ 가만히 대기
         stable_count = 0;
         fx.clear(); fy.clear(); fz.clear();
 
         if (visible) {
-          RCLCPP_INFO(node->get_logger(), ">> Marker seen. Switching to STABILIZE");
+          RCLCPP_INFO(node->get_logger(), ">> Marker seen (ID=%d). Switching to STABILIZE", target_id);
           state = FSM::STABILIZE;
         } else {
           RCLCPP_INFO_THROTTLE(node->get_logger(), *node->get_clock(), 2000,
-                               ">> WAITING... (no marker)");
+                               ">> WAITING... (no fresh marker TF)");
         }
         break;
       }
@@ -167,14 +247,14 @@ int main(int argc, char** argv) {
       case FSM::STABILIZE: {
         if (!visible) {
           stable_count = 0;
-          RCLCPP_WARN(node->get_logger(), ">> Lost marker. Back to WAIT");
+          RCLCPP_WARN(node->get_logger(), ">> Lost marker TF. Back to WAIT");
           state = FSM::WAIT;
           break;
         }
 
         stable_count++;
-        RCLCPP_INFO(node->get_logger(), ">> STABILIZE %d/%d (x=%.3f y=%.3f z=%.3f)",
-                    stable_count, stable_need, mx, my, mz);
+        RCLCPP_INFO(node->get_logger(), ">> STABILIZE %d/%d (ID=%d x=%.3f y=%.3f z=%.3f)",
+                    stable_count, stable_need, target_id, mx, my, mz);
 
         if (stable_count >= stable_need) {
           current_offset = hover_offset;
@@ -195,8 +275,8 @@ int main(int argc, char** argv) {
 
         double target_z = std::max(final_min_z, mz + current_offset);
 
-        RCLCPP_INFO(node->get_logger(), ">> APPROACH offset=%.3f target=(%.3f, %.3f, %.3f)",
-                    current_offset, mx, my, target_z);
+        RCLCPP_INFO(node->get_logger(), ">> APPROACH ID=%d offset=%.3f target=(%.3f, %.3f, %.3f)",
+                    target_id, current_offset, mx, my, target_z);
 
         arm.setStartStateToCurrentState();
         arm.setPositionTarget(mx, my, target_z);
@@ -226,13 +306,14 @@ int main(int argc, char** argv) {
       }
 
       case FSM::GRASP: {
-        RCLCPP_INFO(node->get_logger(), ">> GRASPING!");
+        RCLCPP_INFO(node->get_logger(), ">> GRASPING! (ID=%d)", target_id);
         operateGripper(node, gripper, GRIP_CLOSE);
         state = FSM::LIFT_AND_HOME;
         break;
       }
 
       case FSM::LIFT_AND_HOME: {
+        // lift는 마지막 mx,my,mz 기준
         double lift_z = std::max(final_min_z + 0.10, mz + hover_offset);
         RCLCPP_INFO(node->get_logger(), ">> LIFT to z=%.3f then HOME", lift_z);
 
