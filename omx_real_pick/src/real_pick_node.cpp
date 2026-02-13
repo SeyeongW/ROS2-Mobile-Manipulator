@@ -342,7 +342,7 @@ int main(int argc, char** argv) {
         }
 
         double dyaw   = clamp(-K_yaw   * yaw_err,   -max_step_rad, max_step_rad);
-        double dpitch = clamp(K_pitch * pitch_err, -max_step_rad, max_step_rad);
+        double dpitch = clamp(-K_pitch * pitch_err, -max_step_rad, max_step_rad);
 
         // joint1: yaw, joint2: pitch(어깨)
         joints[0] = clamp(joints[0] + dyaw,   j1_min, j1_max);
