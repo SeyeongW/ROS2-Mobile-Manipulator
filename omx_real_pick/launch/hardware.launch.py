@@ -104,7 +104,6 @@ def generate_launch_description():
     return LaunchDescription(
         declare_args
         + [
-            omx_hw_launch,
             move_group_launch,
             realsense_launch,
             delayed_aruco,
