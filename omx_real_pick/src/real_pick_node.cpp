@@ -1,3 +1,15 @@
+// real_pick_node.cpp
+// - Start: go HOME, open gripper
+// - Wait for ArUco marker (/aruco/markers), pick closest (min depth z)
+// - Use TF (link1 -> aruco_marker_<id>) to build:
+//    pregrasp pose (offset along marker normal)
+//    final   pose (closer along marker normal)
+// - IMPORTANT FIX: Z is NOT trusted (camera on EE) -> clamp or FIXED z_work (recommended)
+// - Pregrasp: arm.move() with pose target
+// - Approach: computeCartesianPath to final
+// - "At grasp position?" 판단: (1) cartesian fraction >= min_cart_frac AND
+//                          (2) EE position error to final <= grasp_pos_tol
+
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp_action/rclcpp_action.hpp>
 
@@ -17,7 +29,6 @@
 #include <thread>
 #include <mutex>
 #include <vector>
-#include <deque>
 #include <algorithm>
 #include <cmath>
 #include <string>
@@ -83,9 +94,9 @@ int main(int argc, char** argv) {
   arm.setMaxAccelerationScalingFactor(0.15);
   arm.setPlanningTime(5.0);
 
-  // Position + orientation targets (orientation is important to avoid flipping)
+  // Position + orientation targets
   arm.setGoalPositionTolerance(0.01);     // 1 cm
-  arm.setGoalOrientationTolerance(0.25);  // ~14 deg (tune)
+  arm.setGoalOrientationTolerance(0.25);  // ~14 deg
 
   // -------------- Gripper -------------
   auto gripper = rclcpp_action::create_client<GripperCommand>(
@@ -118,8 +129,7 @@ int main(int argc, char** argv) {
   // "Reached grasp pose?" tolerance (position)
   const double grasp_pos_tol   = 0.02;   // 2 cm
 
-  // If your gripper frame doesn't align with marker frame, apply a fixed quaternion offset.
-  // Start with identity. If gripper approaches sideways, change these.
+  // Orientation offset between marker frame and gripper frame (start with identity)
   const double off_r = 0.0;  // roll
   const double off_p = 0.0;  // pitch
   const double off_y = 0.0;  // yaw
@@ -127,6 +137,14 @@ int main(int argc, char** argv) {
   // Failure handling
   int fail_count = 0;
   const int max_fail = 3;
+
+  // ---- Workspace clamp (IMPORTANT) ----
+  // Camera on end-effector => marker(base).z can be huge/unreliable for "table height"
+  const double z_min = 0.05;     // avoid table collision
+  const double z_max = 0.35;     // conservative reachable max
+  const double z_work = 0.22;    // estimated working height (tune)
+  const bool   use_fixed_z = true; // true: force z=z_work (recommended)
+  const double xy_max = 0.30;    // clamp XY into reachable area
 
   // ---------- /aruco/markers cache ----------
   std::mutex mk_mtx;
@@ -176,7 +194,6 @@ int main(int argc, char** argv) {
       const double age = (now - stamp).seconds();
       if (age > max_tf_age_sec) return false;
 
-      // sanity
       const auto &tr = t.transform.translation;
       if (!isFinite(tr.x) || !isFinite(tr.y) || !isFinite(tr.z)) return false;
 
@@ -269,6 +286,7 @@ int main(int argc, char** argv) {
 
         stable_count++;
         auto marker_pose = tfToPose(t_base_marker);
+
         RCLCPP_INFO(node->get_logger(), ">> STABLE %d/%d  marker(base)=(%.3f %.3f %.3f)",
                     stable_count, stable_need,
                     marker_pose.position.x, marker_pose.position.y, marker_pose.position.z);
@@ -278,13 +296,12 @@ int main(int argc, char** argv) {
         // Build pregrasp/final poses from marker pose
         tf2::Vector3 z_axis = markerZAxisInBase(marker_pose);
 
-        // If your approach goes to the "wrong side", flip this once:
+        // If your approach goes to the "wrong side", flip this:
         // z_axis = -z_axis;
 
-        // Orientation goal = marker orientation (optionally with fixed offset)
         geometry_msgs::msg::Quaternion q_goal = applyOrientationOffset(marker_pose.orientation);
 
-        // Final pose: near marker along its normal (slightly away from plane)
+        // Final pose: near marker along its normal
         final_pose = marker_pose;
         final_pose.orientation = q_goal;
         final_pose.position.x += z_axis.x() * grasp_dist;
@@ -298,8 +315,29 @@ int main(int argc, char** argv) {
         pregrasp_pose.position.y += z_axis.y() * pregrasp_dist;
         pregrasp_pose.position.z += z_axis.z() * pregrasp_dist;
 
+        // -----------------------------
+        // IMPORTANT FIX: Z sanity / clamp
+        // -----------------------------
+        if (use_fixed_z) {
+          pregrasp_pose.position.z = z_work;
+          final_pose.position.z    = z_work;  // 필요하면 z_work - 0.02로 더 내려도 됨
+        } else {
+          pregrasp_pose.position.z = clamp(pregrasp_pose.position.z, z_min, z_max);
+          final_pose.position.z    = clamp(final_pose.position.z,    z_min, z_max);
+        }
+        // always clamp as safety
+        pregrasp_pose.position.z = clamp(pregrasp_pose.position.z, z_min, z_max);
+        final_pose.position.z    = clamp(final_pose.position.z,    z_min, z_max);
+
+        // Optional: XY clamp
+        pregrasp_pose.position.x = clamp(pregrasp_pose.position.x, -xy_max, xy_max);
+        pregrasp_pose.position.y = clamp(pregrasp_pose.position.y, -xy_max, xy_max);
+        final_pose.position.x    = clamp(final_pose.position.x,    -xy_max, xy_max);
+        final_pose.position.y    = clamp(final_pose.position.y,    -xy_max, xy_max);
+
         RCLCPP_INFO(node->get_logger(),
-                    ">> Built poses: pre(%.3f %.3f %.3f) final(%.3f %.3f %.3f)",
+                    ">> Built poses(Z fixed=%s): pre(%.3f %.3f %.3f) final(%.3f %.3f %.3f)",
+                    use_fixed_z ? "true" : "false",
                     pregrasp_pose.position.x, pregrasp_pose.position.y, pregrasp_pose.position.z,
                     final_pose.position.x,  final_pose.position.y,  final_pose.position.z);
 
@@ -357,18 +395,13 @@ int main(int argc, char** argv) {
           break;
         }
 
-        // --------- "Reached grasp pose?" 판단 ----------
-        // 1) MoveIt 실행 성공
-        // 2) 실제 end-effector pose가 final_pose와 충분히 가까움 (position error < grasp_pos_tol)
         auto ee = arm.getCurrentPose().pose;
         const double err = dist3(ee.position, final_pose.position);
-
         RCLCPP_INFO(node->get_logger(), ">> EE position error to final: %.3f m", err);
 
         if (err <= grasp_pos_tol) {
           state = FSM::GRASP;
         } else {
-          // 아직 멀면 다시 WAIT로 (혹은 재-approach 로직 넣어도 됨)
           RCLCPP_WARN(node->get_logger(), ">> Not close enough to grasp. Back to WAIT_MARKER");
           state = FSM::WAIT_MARKER;
         }
@@ -388,7 +421,7 @@ int main(int argc, char** argv) {
         // lift straight up in base frame
         auto ee = arm.getCurrentPose().pose;
         geometry_msgs::msg::Pose lift_pose = ee;
-        lift_pose.position.z += lift_dist;
+        lift_pose.position.z = clamp(lift_pose.position.z + lift_dist, z_min, z_max);
 
         arm.setStartStateToCurrentState();
         arm.setPoseTarget(lift_pose);
@@ -397,10 +430,7 @@ int main(int argc, char** argv) {
         arm.setNamedTarget("home");
         arm.move();
 
-        // (옵션) 놓기
-        // operateGripper(node, gripper, GRIP_OPEN);
-
-        // 반복 동작
+        // repeat
         stable_count = 0;
         fail_count = 0;
         state = FSM::WAIT_MARKER;
