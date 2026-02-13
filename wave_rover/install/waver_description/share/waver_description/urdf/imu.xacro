@@ -1,0 +1,44 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="imu">
+
+    <xacro:include filename="$(find waver_description)/urdf/materials.xacro" />
+    <xacro:include filename="$(find waver_description)/urdf/util.xacro" />
+
+    <link name="imu_link">
+        <inertial>
+            <mass value="${mass_imu}" />
+            <origin xyz="${mass_center_imu}" rpy="0 0 ${pi/2}" />
+            <inertia ixx="4.297064285474092e-13" iyy="4.199442581059605e-13" izz="7.142756866533696e-13" ixy="0.0" iyz="0.0" ixz="0.0" />
+        </inertial>
+        <visual>
+            <origin xyz="${position_imu}" rpy="0 0 ${pi/2}" />
+            <geometry>
+                <mesh filename="package://waver_description/meshes/board_link.stl" scale="${scale}" />
+            </geometry>
+            <xacro:dark_green_material />
+        </visual>
+        <collision>
+            <origin xyz="${position_imu}" rpy="0 0 ${pi/2}" />
+            <geometry>
+                <mesh filename="package://waver_description/meshes/board_link.stl" scale="${scale}" />
+            </geometry>
+        </collision>
+    </link>
+
+    <joint name="top_imu_joint" type="fixed">
+        <origin xyz="${positions_imu_joint}" rpy="0 0 0" />
+        <parent link="top_shell_link" />
+        <child link="imu_link" />
+    </joint>
+
+    <gazebo reference="imu_link">
+        <material>Gazebo/Orange</material>
+        <gravity>true</gravity>
+        <sensor name="imu_sensor" type="imu">
+            <always_on>true</always_on>
+            <update_rate>100</update_rate>
+            <visualize>true</visualize>
+            <topic>imu</topic>
+        </sensor>
+    </gazebo>
+</robot>

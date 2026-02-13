@@ -1,0 +1,49 @@
+-- The C compiler identification is GNU 11.4.0
+-- The CXX compiler identification is GNU 11.4.0
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: /usr/bin/cc - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Found ament_cmake: 1.3.12 (/opt/ros/humble/share/ament_cmake/cmake)
+-- Found Python3: /usr/bin/python3 (found version "3.10.12") found components: Interpreter 
+-- Found ament_lint_auto: 0.12.14 (/opt/ros/humble/share/ament_lint_auto/cmake)
+-- Configuring done
+-- Generating done
+-- Build files have been written to: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/build/waver_nav
+-- Install configuration: ""
+-- Installing: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_nav/share/ament_index/resource_index/package_run_dependencies/waver_nav
+-- Installing: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_nav/share/ament_index/resource_index/parent_prefix_path/waver_nav
+-- Installing: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_nav/share/waver_nav/environment/ament_prefix_path.sh
+-- Installing: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_nav/share/waver_nav/environment/ament_prefix_path.dsv
+-- Installing: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_nav/share/waver_nav/environment/path.sh
+-- Installing: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_nav/share/waver_nav/environment/path.dsv
+-- Installing: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_nav/share/waver_nav/local_setup.bash
+-- Installing: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_nav/share/waver_nav/local_setup.sh
+-- Installing: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_nav/share/waver_nav/local_setup.zsh
+-- Installing: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_nav/share/waver_nav/local_setup.dsv
+-- Installing: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_nav/share/waver_nav/package.dsv
+-- Installing: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_nav/share/ament_index/resource_index/packages/waver_nav
+-- Installing: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_nav/share/waver_nav/cmake/waver_navConfig.cmake
+-- Installing: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_nav/share/waver_nav/cmake/waver_navConfig-version.cmake
+-- Installing: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_nav/share/waver_nav/package.xml
+-- Installing: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_nav/share/waver_nav//launch
+-- Installing: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_nav/share/waver_nav//launch/lifecycle_manager.launch.xml
+-- Installing: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_nav/share/waver_nav//launch/move_base.launch
+-- Installing: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_nav/share/waver_nav//launch/map_server.launch.xml
+-- Installing: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_nav/share/waver_nav//launch/async_slam_toolbox.launch.xml
+-- Installing: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_nav/share/waver_nav//launch/map_saver.launch.xml
+-- Installing: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_nav/share/waver_nav//launch/waver_nav.launch
+-- Installing: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_nav/share/waver_nav//launch/amcl.launch
+-- Installing: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_nav/share/waver_nav//maps
+-- Installing: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_nav/share/waver_nav//maps/coworking_map.pgm
+-- Installing: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_nav/share/waver_nav//maps/coworking_map.yaml
+-- Installing: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_nav/share/waver_nav//param
+-- Installing: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_nav/share/waver_nav//param/async_slam_toolbox.yaml
+-- Installing: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_nav/share/waver_nav//rviz
+-- Installing: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_nav/share/waver_nav//rviz/waver.rviz

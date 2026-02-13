@@ -1,0 +1,46 @@
+[0.010s] Invoking command in '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/build/waver_gazebo': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/seyeongw/ros2_ws/install/ros2_aruco:/home/seyeongw/ros2_ws/install/camera_detection:/opt/ros/humble /usr/bin/cmake /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/waver_gazebo -DCMAKE_INSTALL_PREFIX=/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo
+[0.052s] -- The C compiler identification is GNU 11.4.0
+[0.091s] -- The CXX compiler identification is GNU 11.4.0
+[0.098s] -- Detecting C compiler ABI info
+[0.162s] -- Detecting C compiler ABI info - done
+[0.169s] -- Check for working C compiler: /usr/bin/cc - skipped
+[0.169s] -- Detecting C compile features
+[0.170s] -- Detecting C compile features - done
+[0.172s] -- Detecting CXX compiler ABI info
+[0.237s] -- Detecting CXX compiler ABI info - done
+[0.245s] -- Check for working CXX compiler: /usr/bin/c++ - skipped
+[0.245s] -- Detecting CXX compile features
+[0.246s] -- Detecting CXX compile features - done
+[0.249s] -- Found ament_cmake: 1.3.12 (/opt/ros/humble/share/ament_cmake/cmake)
+[0.379s] -- Found Python3: /usr/bin/python3 (found version "3.10.12") found components: Interpreter 
+[0.446s] -- Found ament_lint_auto: 0.12.14 (/opt/ros/humble/share/ament_lint_auto/cmake)
+[0.507s] -- Configuring done
+[0.508s] -- Generating done
+[0.509s] -- Build files have been written to: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/build/waver_gazebo
+[0.515s] Invoked command in '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/build/waver_gazebo' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/seyeongw/ros2_ws/install/ros2_aruco:/home/seyeongw/ros2_ws/install/camera_detection:/opt/ros/humble /usr/bin/cmake /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/waver_gazebo -DCMAKE_INSTALL_PREFIX=/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo
+[0.517s] Invoking command in '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/build/waver_gazebo': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/seyeongw/ros2_ws/install/ros2_aruco:/home/seyeongw/ros2_ws/install/camera_detection:/opt/ros/humble /usr/bin/cmake --build /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/build/waver_gazebo -- -j18 -l18
+[0.556s] Invoked command in '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/build/waver_gazebo' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/seyeongw/ros2_ws/install/ros2_aruco:/home/seyeongw/ros2_ws/install/camera_detection:/opt/ros/humble /usr/bin/cmake --build /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/build/waver_gazebo -- -j18 -l18
+[0.556s] Invoking command in '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/build/waver_gazebo': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/seyeongw/ros2_ws/install/ros2_aruco:/home/seyeongw/ros2_ws/install/camera_detection:/opt/ros/humble /usr/bin/cmake --install /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/build/waver_gazebo
+[0.562s] -- Install configuration: ""
+[0.562s] -- Installing: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo/share/ament_index/resource_index/package_run_dependencies/waver_gazebo
+[0.562s] -- Installing: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo/share/ament_index/resource_index/parent_prefix_path/waver_gazebo
+[0.563s] -- Installing: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo/share/waver_gazebo/environment/ament_prefix_path.sh
+[0.563s] -- Installing: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo/share/waver_gazebo/environment/ament_prefix_path.dsv
+[0.564s] -- Installing: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo/share/waver_gazebo/environment/path.sh
+[0.564s] -- Installing: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo/share/waver_gazebo/environment/path.dsv
+[0.565s] -- Installing: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo/share/waver_gazebo/local_setup.bash
+[0.565s] -- Installing: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo/share/waver_gazebo/local_setup.sh
+[0.565s] -- Installing: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo/share/waver_gazebo/local_setup.zsh
+[0.565s] -- Installing: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo/share/waver_gazebo/local_setup.dsv
+[0.565s] -- Installing: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo/share/waver_gazebo/package.dsv
+[0.565s] -- Installing: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo/share/ament_index/resource_index/packages/waver_gazebo
+[0.565s] -- Installing: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo/share/waver_gazebo/cmake/waver_gazeboConfig.cmake
+[0.565s] -- Installing: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo/share/waver_gazebo/cmake/waver_gazeboConfig-version.cmake
+[0.565s] -- Installing: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo/share/waver_gazebo/package.xml
+[0.566s] -- Installing: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo/share/waver_gazebo//config
+[0.566s] -- Installing: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo/share/waver_gazebo//config/ros_gz_bridge.yaml
+[0.566s] -- Installing: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo/share/waver_gazebo//launch
+[0.566s] -- Installing: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo/share/waver_gazebo//launch/gazebo.launch.xml
+[0.566s] -- Installing: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo/share/waver_gazebo//worlds
+[0.566s] -- Installing: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo/share/waver_gazebo//worlds/room.sdf
+[0.570s] Invoked command in '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/build/waver_gazebo' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/seyeongw/ros2_ws/install/ros2_aruco:/home/seyeongw/ros2_ws/install/camera_detection:/opt/ros/humble /usr/bin/cmake --install /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/build/waver_gazebo

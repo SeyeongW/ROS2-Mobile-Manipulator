@@ -1,0 +1,40 @@
+-- The C compiler identification is GNU 11.4.0
+-- The CXX compiler identification is GNU 11.4.0
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: /usr/bin/cc - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Found ament_cmake: 1.3.12 (/opt/ros/humble/share/ament_cmake/cmake)
+-- Found Python3: /usr/bin/python3 (found version "3.10.12") found components: Interpreter 
+-- Found ament_lint_auto: 0.12.14 (/opt/ros/humble/share/ament_lint_auto/cmake)
+-- Configuring done
+-- Generating done
+-- Build files have been written to: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/build/waver_gazebo
+-- Install configuration: ""
+-- Installing: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo/share/ament_index/resource_index/package_run_dependencies/waver_gazebo
+-- Installing: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo/share/ament_index/resource_index/parent_prefix_path/waver_gazebo
+-- Installing: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo/share/waver_gazebo/environment/ament_prefix_path.sh
+-- Installing: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo/share/waver_gazebo/environment/ament_prefix_path.dsv
+-- Installing: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo/share/waver_gazebo/environment/path.sh
+-- Installing: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo/share/waver_gazebo/environment/path.dsv
+-- Installing: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo/share/waver_gazebo/local_setup.bash
+-- Installing: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo/share/waver_gazebo/local_setup.sh
+-- Installing: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo/share/waver_gazebo/local_setup.zsh
+-- Installing: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo/share/waver_gazebo/local_setup.dsv
+-- Installing: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo/share/waver_gazebo/package.dsv
+-- Installing: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo/share/ament_index/resource_index/packages/waver_gazebo
+-- Installing: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo/share/waver_gazebo/cmake/waver_gazeboConfig.cmake
+-- Installing: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo/share/waver_gazebo/cmake/waver_gazeboConfig-version.cmake
+-- Installing: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo/share/waver_gazebo/package.xml
+-- Installing: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo/share/waver_gazebo//config
+-- Installing: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo/share/waver_gazebo//config/ros_gz_bridge.yaml
+-- Installing: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo/share/waver_gazebo//launch
+-- Installing: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo/share/waver_gazebo//launch/gazebo.launch.xml
+-- Installing: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo/share/waver_gazebo//worlds
+-- Installing: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo/share/waver_gazebo//worlds/room.sdf

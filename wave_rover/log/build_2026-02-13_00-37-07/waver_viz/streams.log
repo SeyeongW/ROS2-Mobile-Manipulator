@@ -1,0 +1,24 @@
+[0.017s] Invoking command in '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/build/waver_viz': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/seyeongw/ros2_ws/install/ros2_aruco:/home/seyeongw/ros2_ws/install/camera_detection:/opt/ros/humble /usr/bin/cmake --build /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/build/waver_viz -- -j18 -l18
+[0.074s] Invoked command in '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/build/waver_viz' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/seyeongw/ros2_ws/install/ros2_aruco:/home/seyeongw/ros2_ws/install/camera_detection:/opt/ros/humble /usr/bin/cmake --build /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/build/waver_viz -- -j18 -l18
+[0.076s] Invoking command in '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/build/waver_viz': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/seyeongw/ros2_ws/install/ros2_aruco:/home/seyeongw/ros2_ws/install/camera_detection:/opt/ros/humble /usr/bin/cmake --install /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/build/waver_viz
+[0.089s] -- Install configuration: ""
+[0.090s] -- Up-to-date: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_viz/share/ament_index/resource_index/package_run_dependencies/waver_viz
+[0.090s] -- Up-to-date: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_viz/share/ament_index/resource_index/parent_prefix_path/waver_viz
+[0.090s] -- Up-to-date: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_viz/share/waver_viz/environment/ament_prefix_path.sh
+[0.090s] -- Up-to-date: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_viz/share/waver_viz/environment/ament_prefix_path.dsv
+[0.090s] -- Up-to-date: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_viz/share/waver_viz/environment/path.sh
+[0.090s] -- Up-to-date: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_viz/share/waver_viz/environment/path.dsv
+[0.090s] -- Up-to-date: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_viz/share/waver_viz/local_setup.bash
+[0.090s] -- Up-to-date: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_viz/share/waver_viz/local_setup.sh
+[0.090s] -- Up-to-date: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_viz/share/waver_viz/local_setup.zsh
+[0.090s] -- Up-to-date: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_viz/share/waver_viz/local_setup.dsv
+[0.090s] -- Installing: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_viz/share/waver_viz/package.dsv
+[0.090s] -- Up-to-date: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_viz/share/ament_index/resource_index/packages/waver_viz
+[0.090s] -- Up-to-date: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_viz/share/waver_viz/cmake/waver_vizConfig.cmake
+[0.090s] -- Up-to-date: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_viz/share/waver_viz/cmake/waver_vizConfig-version.cmake
+[0.090s] -- Up-to-date: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_viz/share/waver_viz/package.xml
+[0.090s] -- Up-to-date: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_viz/share/waver_viz//launch
+[0.091s] -- Up-to-date: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_viz/share/waver_viz//launch/rviz.launch.xml
+[0.091s] -- Up-to-date: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_viz/share/waver_viz//rviz
+[0.091s] -- Up-to-date: /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_viz/share/waver_viz//rviz/waver.rviz
+[0.124s] Invoked command in '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/build/waver_viz' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/seyeongw/ros2_ws/install/ros2_aruco:/home/seyeongw/ros2_ws/install/camera_detection:/opt/ros/humble /usr/bin/cmake --install /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/build/waver_viz

@@ -1,0 +1,325 @@
+[0.114s] DEBUG:colcon:Command line arguments: ['/usr/bin/colcon', 'build']
+[0.114s] DEBUG:colcon:Parsed command line arguments: Namespace(log_base=None, log_level=None, verb_name='build', build_base='build', install_base='install', merge_install=False, symlink_install=False, test_result_base=None, continue_on_error=False, executor='parallel', parallel_workers=18, event_handlers=None, ignore_user_meta=False, metas=['./colcon.meta'], base_paths=['.'], packages_ignore=None, packages_ignore_regex=None, paths=None, packages_up_to=None, packages_up_to_regex=None, packages_above=None, packages_above_and_dependencies=None, packages_above_depth=None, packages_select_by_dep=None, packages_skip_by_dep=None, packages_skip_up_to=None, packages_select_build_failed=False, packages_skip_build_finished=False, packages_select_test_failures=False, packages_skip_test_passed=False, packages_select=None, packages_skip=None, packages_select_regex=None, packages_skip_regex=None, packages_start=None, packages_end=None, allow_overriding=[], cmake_args=None, cmake_target=None, cmake_target_skip_unavailable=False, cmake_clean_cache=False, cmake_clean_first=False, cmake_force_configure=False, ament_cmake_args=None, catkin_cmake_args=None, catkin_skip_building_tests=False, mixin_files=None, mixin=None, verb_parser=<colcon_mixin.mixin.mixin_argument.MixinArgumentDecorator object at 0x750641e89660>, verb_extension=<colcon_core.verb.build.BuildVerb object at 0x750641e88f70>, main=<bound method BuildVerb.main of <colcon_core.verb.build.BuildVerb object at 0x750641e88f70>>, mixin_verb=('build',))
+[0.318s] Level 1:colcon.colcon_core.package_discovery:discover_packages(colcon_meta) check parameters
+[0.318s] Level 1:colcon.colcon_core.package_discovery:discover_packages(recursive) check parameters
+[0.318s] Level 1:colcon.colcon_core.package_discovery:discover_packages(ignore) check parameters
+[0.318s] Level 1:colcon.colcon_core.package_discovery:discover_packages(path) check parameters
+[0.318s] Level 1:colcon.colcon_core.package_discovery:discover_packages(colcon_meta) discover
+[0.318s] Level 1:colcon.colcon_core.package_discovery:discover_packages(recursive) discover
+[0.318s] INFO:colcon.colcon_core.package_discovery:Crawling recursively for packages in '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover'
+[0.318s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['ignore', 'ignore_ament_install']
+[0.319s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'ignore'
+[0.319s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'ignore_ament_install'
+[0.319s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['colcon_pkg']
+[0.319s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'colcon_pkg'
+[0.319s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['colcon_meta']
+[0.319s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'colcon_meta'
+[0.319s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['ros']
+[0.319s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'ros'
+[0.365s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['cmake', 'python']
+[0.365s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'cmake'
+[0.365s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'python'
+[0.365s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['python_setup_py']
+[0.365s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'python_setup_py'
+[0.365s] Level 1:colcon.colcon_core.package_identification:_identify(build) by extensions ['ignore', 'ignore_ament_install']
+[0.365s] Level 1:colcon.colcon_core.package_identification:_identify(build) by extension 'ignore'
+[0.365s] Level 1:colcon.colcon_core.package_identification:_identify(build) ignored
+[0.365s] Level 1:colcon.colcon_core.package_identification:_identify(install) by extensions ['ignore', 'ignore_ament_install']
+[0.366s] Level 1:colcon.colcon_core.package_identification:_identify(install) by extension 'ignore'
+[0.366s] Level 1:colcon.colcon_core.package_identification:_identify(install) ignored
+[0.366s] Level 1:colcon.colcon_core.package_identification:_identify(log) by extensions ['ignore', 'ignore_ament_install']
+[0.366s] Level 1:colcon.colcon_core.package_identification:_identify(log) by extension 'ignore'
+[0.366s] Level 1:colcon.colcon_core.package_identification:_identify(log) ignored
+[0.366s] Level 1:colcon.colcon_core.package_identification:_identify(scripts) by extensions ['ignore', 'ignore_ament_install']
+[0.366s] Level 1:colcon.colcon_core.package_identification:_identify(scripts) by extension 'ignore'
+[0.366s] Level 1:colcon.colcon_core.package_identification:_identify(scripts) by extension 'ignore_ament_install'
+[0.366s] Level 1:colcon.colcon_core.package_identification:_identify(scripts) by extensions ['colcon_pkg']
+[0.366s] Level 1:colcon.colcon_core.package_identification:_identify(scripts) by extension 'colcon_pkg'
+[0.366s] Level 1:colcon.colcon_core.package_identification:_identify(scripts) by extensions ['colcon_meta']
+[0.366s] Level 1:colcon.colcon_core.package_identification:_identify(scripts) by extension 'colcon_meta'
+[0.366s] Level 1:colcon.colcon_core.package_identification:_identify(scripts) by extensions ['ros']
+[0.366s] Level 1:colcon.colcon_core.package_identification:_identify(scripts) by extension 'ros'
+[0.366s] Level 1:colcon.colcon_core.package_identification:_identify(scripts) by extensions ['cmake', 'python']
+[0.366s] Level 1:colcon.colcon_core.package_identification:_identify(scripts) by extension 'cmake'
+[0.366s] Level 1:colcon.colcon_core.package_identification:_identify(scripts) by extension 'python'
+[0.366s] Level 1:colcon.colcon_core.package_identification:_identify(scripts) by extensions ['python_setup_py']
+[0.366s] Level 1:colcon.colcon_core.package_identification:_identify(scripts) by extension 'python_setup_py'
+[0.366s] Level 1:colcon.colcon_core.package_identification:_identify(waver_description) by extensions ['ignore', 'ignore_ament_install']
+[0.366s] Level 1:colcon.colcon_core.package_identification:_identify(waver_description) by extension 'ignore'
+[0.366s] Level 1:colcon.colcon_core.package_identification:_identify(waver_description) by extension 'ignore_ament_install'
+[0.366s] Level 1:colcon.colcon_core.package_identification:_identify(waver_description) by extensions ['colcon_pkg']
+[0.366s] Level 1:colcon.colcon_core.package_identification:_identify(waver_description) by extension 'colcon_pkg'
+[0.366s] Level 1:colcon.colcon_core.package_identification:_identify(waver_description) by extensions ['colcon_meta']
+[0.366s] Level 1:colcon.colcon_core.package_identification:_identify(waver_description) by extension 'colcon_meta'
+[0.367s] Level 1:colcon.colcon_core.package_identification:_identify(waver_description) by extensions ['ros']
+[0.367s] Level 1:colcon.colcon_core.package_identification:_identify(waver_description) by extension 'ros'
+[0.369s] DEBUG:colcon.colcon_core.package_identification:Package 'waver_description' with type 'ros.ament_cmake' and name 'waver_description'
+[0.369s] Level 1:colcon.colcon_core.package_identification:_identify(waver_gazebo) by extensions ['ignore', 'ignore_ament_install']
+[0.369s] Level 1:colcon.colcon_core.package_identification:_identify(waver_gazebo) by extension 'ignore'
+[0.369s] Level 1:colcon.colcon_core.package_identification:_identify(waver_gazebo) by extension 'ignore_ament_install'
+[0.369s] Level 1:colcon.colcon_core.package_identification:_identify(waver_gazebo) by extensions ['colcon_pkg']
+[0.369s] Level 1:colcon.colcon_core.package_identification:_identify(waver_gazebo) by extension 'colcon_pkg'
+[0.369s] Level 1:colcon.colcon_core.package_identification:_identify(waver_gazebo) by extensions ['colcon_meta']
+[0.369s] Level 1:colcon.colcon_core.package_identification:_identify(waver_gazebo) by extension 'colcon_meta'
+[0.369s] Level 1:colcon.colcon_core.package_identification:_identify(waver_gazebo) by extensions ['ros']
+[0.369s] Level 1:colcon.colcon_core.package_identification:_identify(waver_gazebo) by extension 'ros'
+[0.370s] DEBUG:colcon.colcon_core.package_identification:Package 'waver_gazebo' with type 'ros.ament_cmake' and name 'waver_gazebo'
+[0.370s] Level 1:colcon.colcon_core.package_identification:_identify(waver_nav) by extensions ['ignore', 'ignore_ament_install']
+[0.370s] Level 1:colcon.colcon_core.package_identification:_identify(waver_nav) by extension 'ignore'
+[0.370s] Level 1:colcon.colcon_core.package_identification:_identify(waver_nav) by extension 'ignore_ament_install'
+[0.370s] Level 1:colcon.colcon_core.package_identification:_identify(waver_nav) by extensions ['colcon_pkg']
+[0.370s] Level 1:colcon.colcon_core.package_identification:_identify(waver_nav) by extension 'colcon_pkg'
+[0.370s] Level 1:colcon.colcon_core.package_identification:_identify(waver_nav) by extensions ['colcon_meta']
+[0.370s] Level 1:colcon.colcon_core.package_identification:_identify(waver_nav) by extension 'colcon_meta'
+[0.370s] Level 1:colcon.colcon_core.package_identification:_identify(waver_nav) by extensions ['ros']
+[0.370s] Level 1:colcon.colcon_core.package_identification:_identify(waver_nav) by extension 'ros'
+[0.371s] DEBUG:colcon.colcon_core.package_identification:Package 'waver_nav' with type 'ros.ament_cmake' and name 'waver_nav'
+[0.371s] Level 1:colcon.colcon_core.package_identification:_identify(waver_viz) by extensions ['ignore', 'ignore_ament_install']
+[0.371s] Level 1:colcon.colcon_core.package_identification:_identify(waver_viz) by extension 'ignore'
+[0.371s] Level 1:colcon.colcon_core.package_identification:_identify(waver_viz) by extension 'ignore_ament_install'
+[0.371s] Level 1:colcon.colcon_core.package_identification:_identify(waver_viz) by extensions ['colcon_pkg']
+[0.371s] Level 1:colcon.colcon_core.package_identification:_identify(waver_viz) by extension 'colcon_pkg'
+[0.371s] Level 1:colcon.colcon_core.package_identification:_identify(waver_viz) by extensions ['colcon_meta']
+[0.371s] Level 1:colcon.colcon_core.package_identification:_identify(waver_viz) by extension 'colcon_meta'
+[0.371s] Level 1:colcon.colcon_core.package_identification:_identify(waver_viz) by extensions ['ros']
+[0.371s] Level 1:colcon.colcon_core.package_identification:_identify(waver_viz) by extension 'ros'
+[0.371s] DEBUG:colcon.colcon_core.package_identification:Package 'waver_viz' with type 'ros.ament_cmake' and name 'waver_viz'
+[0.372s] Level 1:colcon.colcon_core.package_discovery:discover_packages(recursive) using defaults
+[0.372s] Level 1:colcon.colcon_core.package_discovery:discover_packages(ignore) discover
+[0.372s] Level 1:colcon.colcon_core.package_discovery:discover_packages(ignore) using defaults
+[0.372s] Level 1:colcon.colcon_core.package_discovery:discover_packages(path) discover
+[0.372s] Level 1:colcon.colcon_core.package_discovery:discover_packages(path) using defaults
+[0.396s] Level 1:colcon.colcon_core.package_discovery:discover_packages(prefix_path) check parameters
+[0.397s] Level 1:colcon.colcon_core.package_discovery:discover_packages(prefix_path) discover
+[0.400s] DEBUG:colcon.colcon_installed_package_information.package_discovery:Found 22 installed packages in /home/seyeongw/ros2_ws/install
+[0.403s] DEBUG:colcon.colcon_installed_package_information.package_discovery:Found 431 installed packages in /opt/ros/humble
+[0.406s] Level 1:colcon.colcon_core.package_discovery:discover_packages(prefix_path) using defaults
+[0.466s] Level 5:colcon.colcon_core.verb:set package 'waver_description' build argument 'cmake_args' from command line to 'None'
+[0.466s] Level 5:colcon.colcon_core.verb:set package 'waver_description' build argument 'cmake_target' from command line to 'None'
+[0.466s] Level 5:colcon.colcon_core.verb:set package 'waver_description' build argument 'cmake_target_skip_unavailable' from command line to 'False'
+[0.466s] Level 5:colcon.colcon_core.verb:set package 'waver_description' build argument 'cmake_clean_cache' from command line to 'False'
+[0.466s] Level 5:colcon.colcon_core.verb:set package 'waver_description' build argument 'cmake_clean_first' from command line to 'False'
+[0.466s] Level 5:colcon.colcon_core.verb:set package 'waver_description' build argument 'cmake_force_configure' from command line to 'False'
+[0.466s] Level 5:colcon.colcon_core.verb:set package 'waver_description' build argument 'ament_cmake_args' from command line to 'None'
+[0.466s] Level 5:colcon.colcon_core.verb:set package 'waver_description' build argument 'catkin_cmake_args' from command line to 'None'
+[0.466s] Level 5:colcon.colcon_core.verb:set package 'waver_description' build argument 'catkin_skip_building_tests' from command line to 'False'
+[0.466s] DEBUG:colcon.colcon_core.verb:Building package 'waver_description' with the following arguments: {'ament_cmake_args': None, 'build_base': '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/build/waver_description', 'catkin_cmake_args': None, 'catkin_skip_building_tests': False, 'cmake_args': None, 'cmake_clean_cache': False, 'cmake_clean_first': False, 'cmake_force_configure': False, 'cmake_target': None, 'cmake_target_skip_unavailable': False, 'install_base': '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_description', 'merge_install': False, 'path': '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/waver_description', 'symlink_install': False, 'test_result_base': None}
+[0.467s] Level 5:colcon.colcon_core.verb:set package 'waver_gazebo' build argument 'cmake_args' from command line to 'None'
+[0.467s] Level 5:colcon.colcon_core.verb:set package 'waver_gazebo' build argument 'cmake_target' from command line to 'None'
+[0.467s] Level 5:colcon.colcon_core.verb:set package 'waver_gazebo' build argument 'cmake_target_skip_unavailable' from command line to 'False'
+[0.467s] Level 5:colcon.colcon_core.verb:set package 'waver_gazebo' build argument 'cmake_clean_cache' from command line to 'False'
+[0.467s] Level 5:colcon.colcon_core.verb:set package 'waver_gazebo' build argument 'cmake_clean_first' from command line to 'False'
+[0.467s] Level 5:colcon.colcon_core.verb:set package 'waver_gazebo' build argument 'cmake_force_configure' from command line to 'False'
+[0.467s] Level 5:colcon.colcon_core.verb:set package 'waver_gazebo' build argument 'ament_cmake_args' from command line to 'None'
+[0.467s] Level 5:colcon.colcon_core.verb:set package 'waver_gazebo' build argument 'catkin_cmake_args' from command line to 'None'
+[0.467s] Level 5:colcon.colcon_core.verb:set package 'waver_gazebo' build argument 'catkin_skip_building_tests' from command line to 'False'
+[0.467s] DEBUG:colcon.colcon_core.verb:Building package 'waver_gazebo' with the following arguments: {'ament_cmake_args': None, 'build_base': '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/build/waver_gazebo', 'catkin_cmake_args': None, 'catkin_skip_building_tests': False, 'cmake_args': None, 'cmake_clean_cache': False, 'cmake_clean_first': False, 'cmake_force_configure': False, 'cmake_target': None, 'cmake_target_skip_unavailable': False, 'install_base': '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo', 'merge_install': False, 'path': '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/waver_gazebo', 'symlink_install': False, 'test_result_base': None}
+[0.467s] Level 5:colcon.colcon_core.verb:set package 'waver_viz' build argument 'cmake_args' from command line to 'None'
+[0.467s] Level 5:colcon.colcon_core.verb:set package 'waver_viz' build argument 'cmake_target' from command line to 'None'
+[0.467s] Level 5:colcon.colcon_core.verb:set package 'waver_viz' build argument 'cmake_target_skip_unavailable' from command line to 'False'
+[0.467s] Level 5:colcon.colcon_core.verb:set package 'waver_viz' build argument 'cmake_clean_cache' from command line to 'False'
+[0.467s] Level 5:colcon.colcon_core.verb:set package 'waver_viz' build argument 'cmake_clean_first' from command line to 'False'
+[0.467s] Level 5:colcon.colcon_core.verb:set package 'waver_viz' build argument 'cmake_force_configure' from command line to 'False'
+[0.467s] Level 5:colcon.colcon_core.verb:set package 'waver_viz' build argument 'ament_cmake_args' from command line to 'None'
+[0.467s] Level 5:colcon.colcon_core.verb:set package 'waver_viz' build argument 'catkin_cmake_args' from command line to 'None'
+[0.467s] Level 5:colcon.colcon_core.verb:set package 'waver_viz' build argument 'catkin_skip_building_tests' from command line to 'False'
+[0.467s] DEBUG:colcon.colcon_core.verb:Building package 'waver_viz' with the following arguments: {'ament_cmake_args': None, 'build_base': '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/build/waver_viz', 'catkin_cmake_args': None, 'catkin_skip_building_tests': False, 'cmake_args': None, 'cmake_clean_cache': False, 'cmake_clean_first': False, 'cmake_force_configure': False, 'cmake_target': None, 'cmake_target_skip_unavailable': False, 'install_base': '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_viz', 'merge_install': False, 'path': '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/waver_viz', 'symlink_install': False, 'test_result_base': None}
+[0.468s] Level 5:colcon.colcon_core.verb:set package 'waver_nav' build argument 'cmake_args' from command line to 'None'
+[0.468s] Level 5:colcon.colcon_core.verb:set package 'waver_nav' build argument 'cmake_target' from command line to 'None'
+[0.468s] Level 5:colcon.colcon_core.verb:set package 'waver_nav' build argument 'cmake_target_skip_unavailable' from command line to 'False'
+[0.468s] Level 5:colcon.colcon_core.verb:set package 'waver_nav' build argument 'cmake_clean_cache' from command line to 'False'
+[0.468s] Level 5:colcon.colcon_core.verb:set package 'waver_nav' build argument 'cmake_clean_first' from command line to 'False'
+[0.468s] Level 5:colcon.colcon_core.verb:set package 'waver_nav' build argument 'cmake_force_configure' from command line to 'False'
+[0.468s] Level 5:colcon.colcon_core.verb:set package 'waver_nav' build argument 'ament_cmake_args' from command line to 'None'
+[0.468s] Level 5:colcon.colcon_core.verb:set package 'waver_nav' build argument 'catkin_cmake_args' from command line to 'None'
+[0.468s] Level 5:colcon.colcon_core.verb:set package 'waver_nav' build argument 'catkin_skip_building_tests' from command line to 'False'
+[0.468s] DEBUG:colcon.colcon_core.verb:Building package 'waver_nav' with the following arguments: {'ament_cmake_args': None, 'build_base': '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/build/waver_nav', 'catkin_cmake_args': None, 'catkin_skip_building_tests': False, 'cmake_args': None, 'cmake_clean_cache': False, 'cmake_clean_first': False, 'cmake_force_configure': False, 'cmake_target': None, 'cmake_target_skip_unavailable': False, 'install_base': '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_nav', 'merge_install': False, 'path': '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/waver_nav', 'symlink_install': False, 'test_result_base': None}
+[0.468s] INFO:colcon.colcon_core.executor:Executing jobs using 'parallel' executor
+[0.469s] DEBUG:colcon.colcon_parallel_executor.executor.parallel:run_until_complete
+[0.470s] INFO:colcon.colcon_ros.task.ament_cmake.build:Building ROS package in '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/waver_description' with build type 'ament_cmake'
+[0.470s] INFO:colcon.colcon_cmake.task.cmake.build:Building CMake package in '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/waver_description'
+[0.472s] INFO:colcon.colcon_core.plugin_system:Skipping extension 'colcon_core.shell.bat': Not used on non-Windows systems
+[0.472s] INFO:colcon.colcon_core.shell:Skip shell extension 'powershell' for command environment: Not usable outside of PowerShell
+[0.472s] DEBUG:colcon.colcon_core.shell:Skip shell extension 'dsv' for command environment
+[0.478s] INFO:colcon.colcon_ros.task.ament_cmake.build:Building ROS package in '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/waver_gazebo' with build type 'ament_cmake'
+[0.478s] INFO:colcon.colcon_cmake.task.cmake.build:Building CMake package in '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/waver_gazebo'
+[0.479s] INFO:colcon.colcon_core.shell:Skip shell extension 'powershell' for command environment: Not usable outside of PowerShell
+[0.479s] DEBUG:colcon.colcon_core.shell:Skip shell extension 'dsv' for command environment
+[0.485s] INFO:colcon.colcon_ros.task.ament_cmake.build:Building ROS package in '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/waver_viz' with build type 'ament_cmake'
+[0.485s] INFO:colcon.colcon_cmake.task.cmake.build:Building CMake package in '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/waver_viz'
+[0.485s] INFO:colcon.colcon_core.shell:Skip shell extension 'powershell' for command environment: Not usable outside of PowerShell
+[0.485s] DEBUG:colcon.colcon_core.shell:Skip shell extension 'dsv' for command environment
+[0.494s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoking command in '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/build/waver_description': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/seyeongw/ros2_ws/install/ros2_aruco:/home/seyeongw/ros2_ws/install/camera_detection:/opt/ros/humble /usr/bin/cmake --build /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/build/waver_description -- -j18 -l18
+[0.500s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoking command in '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/build/waver_gazebo': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/seyeongw/ros2_ws/install/ros2_aruco:/home/seyeongw/ros2_ws/install/camera_detection:/opt/ros/humble /usr/bin/cmake --build /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/build/waver_gazebo -- -j18 -l18
+[0.503s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoking command in '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/build/waver_viz': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/seyeongw/ros2_ws/install/ros2_aruco:/home/seyeongw/ros2_ws/install/camera_detection:/opt/ros/humble /usr/bin/cmake --build /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/build/waver_viz -- -j18 -l18
+[0.543s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoked command in '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/build/waver_description' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/seyeongw/ros2_ws/install/ros2_aruco:/home/seyeongw/ros2_ws/install/camera_detection:/opt/ros/humble /usr/bin/cmake --build /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/build/waver_description -- -j18 -l18
+[0.555s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoking command in '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/build/waver_description': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/seyeongw/ros2_ws/install/ros2_aruco:/home/seyeongw/ros2_ws/install/camera_detection:/opt/ros/humble /usr/bin/cmake --install /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/build/waver_description
+[0.557s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoked command in '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/build/waver_gazebo' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/seyeongw/ros2_ws/install/ros2_aruco:/home/seyeongw/ros2_ws/install/camera_detection:/opt/ros/humble /usr/bin/cmake --build /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/build/waver_gazebo -- -j18 -l18
+[0.559s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoking command in '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/build/waver_gazebo': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/seyeongw/ros2_ws/install/ros2_aruco:/home/seyeongw/ros2_ws/install/camera_detection:/opt/ros/humble /usr/bin/cmake --install /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/build/waver_gazebo
+[0.560s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoked command in '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/build/waver_viz' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/seyeongw/ros2_ws/install/ros2_aruco:/home/seyeongw/ros2_ws/install/camera_detection:/opt/ros/humble /usr/bin/cmake --build /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/build/waver_viz -- -j18 -l18
+[0.561s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoking command in '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/build/waver_viz': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/seyeongw/ros2_ws/install/ros2_aruco:/home/seyeongw/ros2_ws/install/camera_detection:/opt/ros/humble /usr/bin/cmake --install /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/build/waver_viz
+[0.572s] Level 1:colcon.colcon_core.environment:create_environment_scripts_only(waver_description)
+[0.575s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoked command in '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/build/waver_description' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/seyeongw/ros2_ws/install/ros2_aruco:/home/seyeongw/ros2_ws/install/camera_detection:/opt/ros/humble /usr/bin/cmake --install /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/build/waver_description
+[0.579s] Level 1:colcon.colcon_core.environment:checking '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_description' for CMake module files
+[0.579s] Level 1:colcon.colcon_core.environment:checking '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_description' for CMake config files
+[0.580s] Level 1:colcon.colcon_core.shell:create_environment_hook('waver_description', 'cmake_prefix_path')
+[0.580s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_description/share/waver_description/hook/cmake_prefix_path.ps1'
+[0.581s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_description/share/waver_description/hook/cmake_prefix_path.dsv'
+[0.582s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_description/share/waver_description/hook/cmake_prefix_path.sh'
+[0.583s] Level 1:colcon.colcon_core.environment:checking '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_description/bin'
+[0.583s] Level 1:colcon.colcon_core.environment:checking '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_description/lib/pkgconfig/waver_description.pc'
+[0.583s] Level 1:colcon.colcon_core.environment:checking '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_description/lib/python3.10/site-packages'
+[0.584s] Level 1:colcon.colcon_core.environment:checking '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_description/bin'
+[0.584s] INFO:colcon.colcon_core.shell:Creating package script '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_description/share/waver_description/package.ps1'
+[0.586s] INFO:colcon.colcon_core.shell:Creating package descriptor '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_description/share/waver_description/package.dsv'
+[0.586s] INFO:colcon.colcon_core.shell:Creating package script '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_description/share/waver_description/package.sh'
+[0.587s] INFO:colcon.colcon_core.shell:Creating package script '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_description/share/waver_description/package.bash'
+[0.588s] INFO:colcon.colcon_core.shell:Creating package script '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_description/share/waver_description/package.zsh'
+[0.588s] Level 1:colcon.colcon_core.environment:create_file_with_runtime_dependencies(/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_description/share/colcon-core/packages/waver_description)
+[0.589s] Level 1:colcon.colcon_core.environment:create_environment_scripts_only(waver_description)
+[0.589s] Level 1:colcon.colcon_core.environment:checking '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_description' for CMake module files
+[0.590s] Level 1:colcon.colcon_core.environment:checking '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_description' for CMake config files
+[0.590s] Level 1:colcon.colcon_core.shell:create_environment_hook('waver_description', 'cmake_prefix_path')
+[0.590s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_description/share/waver_description/hook/cmake_prefix_path.ps1'
+[0.591s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_description/share/waver_description/hook/cmake_prefix_path.dsv'
+[0.591s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_description/share/waver_description/hook/cmake_prefix_path.sh'
+[0.591s] Level 1:colcon.colcon_core.environment:checking '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_description/bin'
+[0.591s] Level 1:colcon.colcon_core.environment:checking '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_description/lib/pkgconfig/waver_description.pc'
+[0.592s] Level 1:colcon.colcon_core.environment:checking '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_description/lib/python3.10/site-packages'
+[0.592s] Level 1:colcon.colcon_core.environment:checking '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_description/bin'
+[0.592s] INFO:colcon.colcon_core.shell:Creating package script '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_description/share/waver_description/package.ps1'
+[0.593s] INFO:colcon.colcon_core.shell:Creating package descriptor '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_description/share/waver_description/package.dsv'
+[0.593s] INFO:colcon.colcon_core.shell:Creating package script '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_description/share/waver_description/package.sh'
+[0.593s] INFO:colcon.colcon_core.shell:Creating package script '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_description/share/waver_description/package.bash'
+[0.594s] INFO:colcon.colcon_core.shell:Creating package script '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_description/share/waver_description/package.zsh'
+[0.594s] Level 1:colcon.colcon_core.environment:create_file_with_runtime_dependencies(/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_description/share/colcon-core/packages/waver_description)
+[0.595s] Level 1:colcon.colcon_core.environment:create_environment_scripts_only(waver_gazebo)
+[0.595s] Level 1:colcon.colcon_core.environment:checking '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo' for CMake module files
+[0.595s] Level 1:colcon.colcon_core.environment:checking '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo' for CMake config files
+[0.596s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoked command in '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/build/waver_gazebo' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/seyeongw/ros2_ws/install/ros2_aruco:/home/seyeongw/ros2_ws/install/camera_detection:/opt/ros/humble /usr/bin/cmake --install /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/build/waver_gazebo
+[0.596s] Level 1:colcon.colcon_core.shell:create_environment_hook('waver_gazebo', 'cmake_prefix_path')
+[0.596s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo/share/waver_gazebo/hook/cmake_prefix_path.ps1'
+[0.597s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo/share/waver_gazebo/hook/cmake_prefix_path.dsv'
+[0.597s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo/share/waver_gazebo/hook/cmake_prefix_path.sh'
+[0.598s] Level 1:colcon.colcon_core.environment:checking '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo/bin'
+[0.598s] Level 1:colcon.colcon_core.environment:checking '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo/lib/pkgconfig/waver_gazebo.pc'
+[0.598s] Level 1:colcon.colcon_core.environment:checking '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo/lib/python3.10/site-packages'
+[0.598s] Level 1:colcon.colcon_core.environment:checking '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo/bin'
+[0.599s] INFO:colcon.colcon_core.shell:Creating package script '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo/share/waver_gazebo/package.ps1'
+[0.599s] INFO:colcon.colcon_core.shell:Creating package descriptor '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo/share/waver_gazebo/package.dsv'
+[0.599s] INFO:colcon.colcon_core.shell:Creating package script '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo/share/waver_gazebo/package.sh'
+[0.600s] INFO:colcon.colcon_core.shell:Creating package script '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo/share/waver_gazebo/package.bash'
+[0.600s] INFO:colcon.colcon_core.shell:Creating package script '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo/share/waver_gazebo/package.zsh'
+[0.600s] Level 1:colcon.colcon_core.environment:create_file_with_runtime_dependencies(/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo/share/colcon-core/packages/waver_gazebo)
+[0.601s] Level 1:colcon.colcon_core.environment:create_environment_scripts_only(waver_gazebo)
+[0.601s] Level 1:colcon.colcon_core.environment:checking '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo' for CMake module files
+[0.602s] Level 1:colcon.colcon_core.environment:checking '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo' for CMake config files
+[0.602s] Level 1:colcon.colcon_core.shell:create_environment_hook('waver_gazebo', 'cmake_prefix_path')
+[0.603s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo/share/waver_gazebo/hook/cmake_prefix_path.ps1'
+[0.603s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo/share/waver_gazebo/hook/cmake_prefix_path.dsv'
+[0.604s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo/share/waver_gazebo/hook/cmake_prefix_path.sh'
+[0.604s] Level 1:colcon.colcon_core.environment:checking '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo/bin'
+[0.605s] Level 1:colcon.colcon_core.environment:checking '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo/lib/pkgconfig/waver_gazebo.pc'
+[0.605s] Level 1:colcon.colcon_core.environment:checking '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo/lib/python3.10/site-packages'
+[0.605s] Level 1:colcon.colcon_core.environment:checking '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo/bin'
+[0.605s] INFO:colcon.colcon_core.shell:Creating package script '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo/share/waver_gazebo/package.ps1'
+[0.606s] INFO:colcon.colcon_core.shell:Creating package descriptor '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo/share/waver_gazebo/package.dsv'
+[0.606s] INFO:colcon.colcon_core.shell:Creating package script '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo/share/waver_gazebo/package.sh'
+[0.607s] INFO:colcon.colcon_core.shell:Creating package script '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo/share/waver_gazebo/package.bash'
+[0.607s] INFO:colcon.colcon_core.shell:Creating package script '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo/share/waver_gazebo/package.zsh'
+[0.608s] Level 1:colcon.colcon_core.environment:create_file_with_runtime_dependencies(/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo/share/colcon-core/packages/waver_gazebo)
+[0.609s] Level 1:colcon.colcon_core.environment:create_environment_scripts_only(waver_viz)
+[0.609s] Level 1:colcon.colcon_core.environment:checking '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_viz' for CMake module files
+[0.610s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoked command in '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/build/waver_viz' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/seyeongw/ros2_ws/install/ros2_aruco:/home/seyeongw/ros2_ws/install/camera_detection:/opt/ros/humble /usr/bin/cmake --install /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/build/waver_viz
+[0.610s] Level 1:colcon.colcon_core.environment:checking '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_viz' for CMake config files
+[0.611s] Level 1:colcon.colcon_core.shell:create_environment_hook('waver_viz', 'cmake_prefix_path')
+[0.611s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_viz/share/waver_viz/hook/cmake_prefix_path.ps1'
+[0.611s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_viz/share/waver_viz/hook/cmake_prefix_path.dsv'
+[0.612s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_viz/share/waver_viz/hook/cmake_prefix_path.sh'
+[0.612s] Level 1:colcon.colcon_core.environment:checking '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_viz/bin'
+[0.612s] Level 1:colcon.colcon_core.environment:checking '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_viz/lib/pkgconfig/waver_viz.pc'
+[0.613s] Level 1:colcon.colcon_core.environment:checking '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_viz/lib/python3.10/site-packages'
+[0.613s] Level 1:colcon.colcon_core.environment:checking '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_viz/bin'
+[0.613s] INFO:colcon.colcon_core.shell:Creating package script '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_viz/share/waver_viz/package.ps1'
+[0.614s] INFO:colcon.colcon_core.shell:Creating package descriptor '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_viz/share/waver_viz/package.dsv'
+[0.614s] INFO:colcon.colcon_core.shell:Creating package script '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_viz/share/waver_viz/package.sh'
+[0.614s] INFO:colcon.colcon_core.shell:Creating package script '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_viz/share/waver_viz/package.bash'
+[0.615s] INFO:colcon.colcon_core.shell:Creating package script '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_viz/share/waver_viz/package.zsh'
+[0.615s] Level 1:colcon.colcon_core.environment:create_file_with_runtime_dependencies(/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_viz/share/colcon-core/packages/waver_viz)
+[0.615s] Level 1:colcon.colcon_core.environment:create_environment_scripts_only(waver_viz)
+[0.616s] Level 1:colcon.colcon_core.environment:checking '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_viz' for CMake module files
+[0.616s] Level 1:colcon.colcon_core.environment:checking '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_viz' for CMake config files
+[0.616s] Level 1:colcon.colcon_core.shell:create_environment_hook('waver_viz', 'cmake_prefix_path')
+[0.616s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_viz/share/waver_viz/hook/cmake_prefix_path.ps1'
+[0.617s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_viz/share/waver_viz/hook/cmake_prefix_path.dsv'
+[0.617s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_viz/share/waver_viz/hook/cmake_prefix_path.sh'
+[0.618s] Level 1:colcon.colcon_core.environment:checking '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_viz/bin'
+[0.618s] Level 1:colcon.colcon_core.environment:checking '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_viz/lib/pkgconfig/waver_viz.pc'
+[0.618s] Level 1:colcon.colcon_core.environment:checking '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_viz/lib/python3.10/site-packages'
+[0.618s] Level 1:colcon.colcon_core.environment:checking '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_viz/bin'
+[0.619s] INFO:colcon.colcon_core.shell:Creating package script '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_viz/share/waver_viz/package.ps1'
+[0.619s] INFO:colcon.colcon_core.shell:Creating package descriptor '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_viz/share/waver_viz/package.dsv'
+[0.620s] INFO:colcon.colcon_core.shell:Creating package script '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_viz/share/waver_viz/package.sh'
+[0.620s] INFO:colcon.colcon_core.shell:Creating package script '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_viz/share/waver_viz/package.bash'
+[0.620s] INFO:colcon.colcon_core.shell:Creating package script '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_viz/share/waver_viz/package.zsh'
+[0.621s] Level 1:colcon.colcon_core.environment:create_file_with_runtime_dependencies(/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_viz/share/colcon-core/packages/waver_viz)
+[0.621s] INFO:colcon.colcon_ros.task.ament_cmake.build:Building ROS package in '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/waver_nav' with build type 'ament_cmake'
+[0.621s] INFO:colcon.colcon_cmake.task.cmake.build:Building CMake package in '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/waver_nav'
+[0.622s] INFO:colcon.colcon_core.shell:Skip shell extension 'powershell' for command environment: Not usable outside of PowerShell
+[0.622s] DEBUG:colcon.colcon_core.shell:Skip shell extension 'dsv' for command environment
+[0.635s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoking command in '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/build/waver_nav': AMENT_PREFIX_PATH=/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_viz:/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo:/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_description:${AMENT_PREFIX_PATH} CMAKE_PREFIX_PATH=/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_viz:/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo:/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_description:/home/seyeongw/ros2_ws/install/omx_real_pick:/home/seyeongw/ros2_ws/install/omx_moveit_pick_cpp:/home/seyeongw/ros2_ws/install/ros2_aruco_interfaces:/home/seyeongw/ros2_ws/install/px4_ros_com:/home/seyeongw/ros2_ws/install/offboard:/home/seyeongw/ros2_ws/install/px4_msgs:/home/seyeongw/ros2_ws/install/opencv_webcam_sub:/home/seyeongw/ros2_ws/install/open_manipulator:/home/seyeongw/ros2_ws/install/open_manipulator_x_teleop:/home/seyeongw/ros2_ws/install/open_manipulator_x_playground:/home/seyeongw/ros2_ws/install/open_manipulator_x_moveit_config:/home/seyeongw/ros2_ws/install/open_manipulator_x_gui:/home/seyeongw/ros2_ws/install/open_manipulator_x_bringup:/home/seyeongw/ros2_ws/install/open_manipulator_x_description:/home/seyeongw/ros2_ws/install/open_manipulator_msgs:/home/seyeongw/ros2_ws/install/dynamixel_sdk_examples:/home/seyeongw/ros2_ws/install/dynamixel_sdk_custom_interfaces:/home/seyeongw/ros2_ws/install/dynamixel_hardware_interface:/home/seyeongw/ros2_ws/install/dynamixel_sdk:/home/seyeongw/ros2_ws/install/dynamixel_interfaces:/home/seyeongw/ros2_ws/install/ros2_aruco:/home/seyeongw/ros2_ws/install/camera_detection:/opt/ros/humble /usr/bin/cmake --build /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/build/waver_nav -- -j18 -l18
+[0.686s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoked command in '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/build/waver_nav' returned '0': AMENT_PREFIX_PATH=/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_viz:/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo:/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_description:${AMENT_PREFIX_PATH} CMAKE_PREFIX_PATH=/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_viz:/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo:/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_description:/home/seyeongw/ros2_ws/install/omx_real_pick:/home/seyeongw/ros2_ws/install/omx_moveit_pick_cpp:/home/seyeongw/ros2_ws/install/ros2_aruco_interfaces:/home/seyeongw/ros2_ws/install/px4_ros_com:/home/seyeongw/ros2_ws/install/offboard:/home/seyeongw/ros2_ws/install/px4_msgs:/home/seyeongw/ros2_ws/install/opencv_webcam_sub:/home/seyeongw/ros2_ws/install/open_manipulator:/home/seyeongw/ros2_ws/install/open_manipulator_x_teleop:/home/seyeongw/ros2_ws/install/open_manipulator_x_playground:/home/seyeongw/ros2_ws/install/open_manipulator_x_moveit_config:/home/seyeongw/ros2_ws/install/open_manipulator_x_gui:/home/seyeongw/ros2_ws/install/open_manipulator_x_bringup:/home/seyeongw/ros2_ws/install/open_manipulator_x_description:/home/seyeongw/ros2_ws/install/open_manipulator_msgs:/home/seyeongw/ros2_ws/install/dynamixel_sdk_examples:/home/seyeongw/ros2_ws/install/dynamixel_sdk_custom_interfaces:/home/seyeongw/ros2_ws/install/dynamixel_hardware_interface:/home/seyeongw/ros2_ws/install/dynamixel_sdk:/home/seyeongw/ros2_ws/install/dynamixel_interfaces:/home/seyeongw/ros2_ws/install/ros2_aruco:/home/seyeongw/ros2_ws/install/camera_detection:/opt/ros/humble /usr/bin/cmake --build /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/build/waver_nav -- -j18 -l18
+[0.688s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoking command in '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/build/waver_nav': AMENT_PREFIX_PATH=/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_viz:/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo:/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_description:${AMENT_PREFIX_PATH} CMAKE_PREFIX_PATH=/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_viz:/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo:/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_description:/home/seyeongw/ros2_ws/install/omx_real_pick:/home/seyeongw/ros2_ws/install/omx_moveit_pick_cpp:/home/seyeongw/ros2_ws/install/ros2_aruco_interfaces:/home/seyeongw/ros2_ws/install/px4_ros_com:/home/seyeongw/ros2_ws/install/offboard:/home/seyeongw/ros2_ws/install/px4_msgs:/home/seyeongw/ros2_ws/install/opencv_webcam_sub:/home/seyeongw/ros2_ws/install/open_manipulator:/home/seyeongw/ros2_ws/install/open_manipulator_x_teleop:/home/seyeongw/ros2_ws/install/open_manipulator_x_playground:/home/seyeongw/ros2_ws/install/open_manipulator_x_moveit_config:/home/seyeongw/ros2_ws/install/open_manipulator_x_gui:/home/seyeongw/ros2_ws/install/open_manipulator_x_bringup:/home/seyeongw/ros2_ws/install/open_manipulator_x_description:/home/seyeongw/ros2_ws/install/open_manipulator_msgs:/home/seyeongw/ros2_ws/install/dynamixel_sdk_examples:/home/seyeongw/ros2_ws/install/dynamixel_sdk_custom_interfaces:/home/seyeongw/ros2_ws/install/dynamixel_hardware_interface:/home/seyeongw/ros2_ws/install/dynamixel_sdk:/home/seyeongw/ros2_ws/install/dynamixel_interfaces:/home/seyeongw/ros2_ws/install/ros2_aruco:/home/seyeongw/ros2_ws/install/camera_detection:/opt/ros/humble /usr/bin/cmake --install /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/build/waver_nav
+[0.700s] Level 1:colcon.colcon_core.environment:create_environment_scripts_only(waver_nav)
+[0.701s] Level 1:colcon.colcon_core.environment:checking '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_nav' for CMake module files
+[0.701s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoked command in '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/build/waver_nav' returned '0': AMENT_PREFIX_PATH=/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_viz:/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo:/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_description:${AMENT_PREFIX_PATH} CMAKE_PREFIX_PATH=/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_viz:/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_gazebo:/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_description:/home/seyeongw/ros2_ws/install/omx_real_pick:/home/seyeongw/ros2_ws/install/omx_moveit_pick_cpp:/home/seyeongw/ros2_ws/install/ros2_aruco_interfaces:/home/seyeongw/ros2_ws/install/px4_ros_com:/home/seyeongw/ros2_ws/install/offboard:/home/seyeongw/ros2_ws/install/px4_msgs:/home/seyeongw/ros2_ws/install/opencv_webcam_sub:/home/seyeongw/ros2_ws/install/open_manipulator:/home/seyeongw/ros2_ws/install/open_manipulator_x_teleop:/home/seyeongw/ros2_ws/install/open_manipulator_x_playground:/home/seyeongw/ros2_ws/install/open_manipulator_x_moveit_config:/home/seyeongw/ros2_ws/install/open_manipulator_x_gui:/home/seyeongw/ros2_ws/install/open_manipulator_x_bringup:/home/seyeongw/ros2_ws/install/open_manipulator_x_description:/home/seyeongw/ros2_ws/install/open_manipulator_msgs:/home/seyeongw/ros2_ws/install/dynamixel_sdk_examples:/home/seyeongw/ros2_ws/install/dynamixel_sdk_custom_interfaces:/home/seyeongw/ros2_ws/install/dynamixel_hardware_interface:/home/seyeongw/ros2_ws/install/dynamixel_sdk:/home/seyeongw/ros2_ws/install/dynamixel_interfaces:/home/seyeongw/ros2_ws/install/ros2_aruco:/home/seyeongw/ros2_ws/install/camera_detection:/opt/ros/humble /usr/bin/cmake --install /home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/build/waver_nav
+[0.702s] Level 1:colcon.colcon_core.environment:checking '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_nav' for CMake config files
+[0.702s] Level 1:colcon.colcon_core.shell:create_environment_hook('waver_nav', 'cmake_prefix_path')
+[0.702s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_nav/share/waver_nav/hook/cmake_prefix_path.ps1'
+[0.703s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_nav/share/waver_nav/hook/cmake_prefix_path.dsv'
+[0.703s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_nav/share/waver_nav/hook/cmake_prefix_path.sh'
+[0.703s] Level 1:colcon.colcon_core.environment:checking '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_nav/bin'
+[0.704s] Level 1:colcon.colcon_core.environment:checking '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_nav/lib/pkgconfig/waver_nav.pc'
+[0.704s] Level 1:colcon.colcon_core.environment:checking '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_nav/lib/python3.10/site-packages'
+[0.704s] Level 1:colcon.colcon_core.environment:checking '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_nav/bin'
+[0.704s] INFO:colcon.colcon_core.shell:Creating package script '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_nav/share/waver_nav/package.ps1'
+[0.705s] INFO:colcon.colcon_core.shell:Creating package descriptor '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_nav/share/waver_nav/package.dsv'
+[0.705s] INFO:colcon.colcon_core.shell:Creating package script '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_nav/share/waver_nav/package.sh'
+[0.706s] INFO:colcon.colcon_core.shell:Creating package script '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_nav/share/waver_nav/package.bash'
+[0.706s] INFO:colcon.colcon_core.shell:Creating package script '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_nav/share/waver_nav/package.zsh'
+[0.706s] Level 1:colcon.colcon_core.environment:create_file_with_runtime_dependencies(/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_nav/share/colcon-core/packages/waver_nav)
+[0.707s] Level 1:colcon.colcon_core.environment:create_environment_scripts_only(waver_nav)
+[0.707s] Level 1:colcon.colcon_core.environment:checking '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_nav' for CMake module files
+[0.708s] Level 1:colcon.colcon_core.environment:checking '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_nav' for CMake config files
+[0.708s] Level 1:colcon.colcon_core.shell:create_environment_hook('waver_nav', 'cmake_prefix_path')
+[0.708s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_nav/share/waver_nav/hook/cmake_prefix_path.ps1'
+[0.709s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_nav/share/waver_nav/hook/cmake_prefix_path.dsv'
+[0.709s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_nav/share/waver_nav/hook/cmake_prefix_path.sh'
+[0.709s] Level 1:colcon.colcon_core.environment:checking '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_nav/bin'
+[0.709s] Level 1:colcon.colcon_core.environment:checking '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_nav/lib/pkgconfig/waver_nav.pc'
+[0.710s] Level 1:colcon.colcon_core.environment:checking '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_nav/lib/python3.10/site-packages'
+[0.710s] Level 1:colcon.colcon_core.environment:checking '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_nav/bin'
+[0.710s] INFO:colcon.colcon_core.shell:Creating package script '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_nav/share/waver_nav/package.ps1'
+[0.711s] INFO:colcon.colcon_core.shell:Creating package descriptor '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_nav/share/waver_nav/package.dsv'
+[0.711s] INFO:colcon.colcon_core.shell:Creating package script '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_nav/share/waver_nav/package.sh'
+[0.712s] INFO:colcon.colcon_core.shell:Creating package script '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_nav/share/waver_nav/package.bash'
+[0.712s] INFO:colcon.colcon_core.shell:Creating package script '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_nav/share/waver_nav/package.zsh'
+[0.712s] Level 1:colcon.colcon_core.environment:create_file_with_runtime_dependencies(/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/waver_nav/share/colcon-core/packages/waver_nav)
+[0.713s] DEBUG:colcon.colcon_parallel_executor.executor.parallel:closing loop
+[0.713s] DEBUG:colcon.colcon_parallel_executor.executor.parallel:loop closed
+[0.713s] DEBUG:colcon.colcon_parallel_executor.executor.parallel:run_until_complete finished with '0'
+[0.713s] DEBUG:colcon.colcon_core.event_reactor:joining thread
+[0.721s] INFO:colcon.colcon_core.plugin_system:Skipping extension 'colcon_notification.desktop_notification.terminal_notifier': Not used on non-Darwin systems
+[0.721s] INFO:colcon.colcon_core.plugin_system:Skipping extension 'colcon_notification.desktop_notification.win32': Not used on non-Windows systems
+[0.721s] INFO:colcon.colcon_notification.desktop_notification:Sending desktop notification using 'notify2'
+[0.737s] DEBUG:colcon.colcon_core.event_reactor:joined thread
+[0.738s] INFO:colcon.colcon_core.shell:Creating prefix script '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/local_setup.ps1'
+[0.739s] INFO:colcon.colcon_core.shell:Creating prefix util module '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/_local_setup_util_ps1.py'
+[0.740s] INFO:colcon.colcon_core.shell:Creating prefix chain script '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/setup.ps1'
+[0.742s] INFO:colcon.colcon_core.shell:Creating prefix script '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/local_setup.sh'
+[0.743s] INFO:colcon.colcon_core.shell:Creating prefix util module '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/_local_setup_util_sh.py'
+[0.744s] INFO:colcon.colcon_core.shell:Creating prefix chain script '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/setup.sh'
+[0.746s] INFO:colcon.colcon_core.shell:Creating prefix script '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/local_setup.bash'
+[0.747s] INFO:colcon.colcon_core.shell:Creating prefix chain script '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/setup.bash'
+[0.749s] INFO:colcon.colcon_core.shell:Creating prefix script '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/local_setup.zsh'
+[0.750s] INFO:colcon.colcon_core.shell:Creating prefix chain script '/home/seyeongw/ros2_ws/src/ROS2-Mobile-Manipulator/wave_rover/install/setup.zsh'
