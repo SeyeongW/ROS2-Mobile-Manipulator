@@ -93,8 +93,8 @@ int main(int argc, char** argv) {
   const std::string camera_frame  = "camera_link";
   const std::string markers_topic = "/aruco/markers";
 
-  const double GRIP_OPEN  = 0.019;
-  const double GRIP_CLOSE = -0.001;
+  const double GRIP_OPEN  = -0.001;
+  const double GRIP_CLOSE = 0.019;
 
   // TF freshness
   const double max_tf_age_sec = 1.0;
