@@ -7,6 +7,7 @@ from launch.substitutions import LaunchConfiguration
 
 from launch_ros.actions import Node
 from ament_index_python.packages import get_package_share_directory
+from moveit_configs_utils import MoveItConfigsBuilder   # ✅ 추가
 
 
 def generate_launch_description():
@@ -31,6 +32,14 @@ def generate_launch_description():
     ]
 
     # -----------------------
+    # 1) MoveIt Config Builder (🔥 핵심 추가)
+    # -----------------------
+    moveit_config = MoveItConfigsBuilder(
+        "open_manipulator_x",
+        package_name="open_manipulator_x_moveit_config"
+    ).to_moveit_configs()
+
+    # -----------------------
     # 2) MoveIt move_group
     # -----------------------
     move_group_launch = IncludeLaunchDescription(
@@ -44,7 +53,7 @@ def generate_launch_description():
     )
 
     # -----------------------
-    # 3) RealSense (align depth enable)
+    # 3) RealSense
     # -----------------------
     realsense_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
@@ -61,15 +70,10 @@ def generate_launch_description():
 
     # -----------------------
     # 4) ArUco node
-    #
-    # ⚠️ 중요:
-    # Node(...)는 "설치된 실행파일"만 실행 가능.
-    # 즉, omx_real_pick 패키지에 aruco_realsense.py가
-    # console_scripts(또는 install/lib 아래 실행파일)로 존재해야 함.
     # -----------------------
     aruco_node = Node(
         package="omx_real_pick",
-        executable="aruco_realsense.py",   # 너 패키지에서 실제 실행 가능한 이름이어야 함
+        executable="aruco_realsense.py",
         name="aruco_subscriber_node",
         output="screen",
         parameters=[{
@@ -82,21 +86,23 @@ def generate_launch_description():
     )
 
     # -----------------------
-    # 5) Pick control node (MoveIt interface)
+    # 5) Pick node (🔥 MoveIt 파라미터 전달)
     # -----------------------
     pick_node = Node(
         package="omx_real_pick",
-        executable="real_pick_node",  # C++ 노드 실행파일
+        executable="real_pick_node",
         name="real_pick_node",
         output="screen",
-        parameters=[{
-            "use_sim_time": use_sim_time,
-        }],
+        parameters=[
+            moveit_config.robot_description,
+            moveit_config.robot_description_semantic,
+            moveit_config.robot_description_kinematics,  # 🔥 이게 없어서 IK 경고 떴던 것
+            {"use_sim_time": use_sim_time},
+        ],
     )
 
     # -----------------------
     # 순서 보장용 Timer
-    # (하드웨어/MoveIt/카메라가 먼저 안정화된 뒤 aruco/pick 실행)
     # -----------------------
     delayed_aruco = TimerAction(period=6.0, actions=[aruco_node])
     delayed_pick  = TimerAction(period=10.0, actions=[pick_node])
