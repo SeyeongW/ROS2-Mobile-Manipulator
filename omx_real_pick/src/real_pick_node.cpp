@@ -160,7 +160,7 @@ int main(int argc, char** argv) {
   const double min_cart_frac = 0.85;
 
   const double grasp_pos_tol = 0.03;
-  const double grip_close_dist_m = 0.10;  // Close gripper when marker is within 10 cm in camera frame.
+  const double grip_close_dist_m = 0.20;  // Close gripper when marker is within 10 cm in camera frame.
   const double center_cmd_interval_sec = 0.35;  // Limit centering command updates to reduce oscillation.
 
   const double z_min  = 0.05;
