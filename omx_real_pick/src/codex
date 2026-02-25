@@ -410,7 +410,7 @@ int main(int argc, char** argv) {
         pitch_cmd_sign = (pitch_cmd_sign >= 0) ? 1 : -1;
 
         double dyaw   = clamp(yaw_cmd_sign * K_yaw * yaw_err,   -max_step_rad, max_step_rad);
-        double dpitch = clamp(pitch_cmd_sign * K_pitch * pitch_err, -max_step_rad, max_step_rad);
+        double dpitch = clamp(-pitch_cmd_sign * K_pitch * pitch_err, -max_step_rad, max_step_rad);
 
         RCLCPP_DEBUG(node->get_logger(),
                      ">> CTRL: yaw_cmd_sign=%d pitch_cmd_sign=%d dyaw=%.4f dpitch=%.4f",
