@@ -38,6 +38,7 @@ static double dist3(const geometry_msgs::msg::Point& a, const geometry_msgs::msg
   return std::sqrt(dx*dx + dy*dy + dz*dz);
 }
 
+// [ADDED] xyz 기반 거리
 static double distXYZ(double x, double y, double z) {
   return std::sqrt(x*x + y*y + z*z);
 }
@@ -137,6 +138,11 @@ int main(int argc, char** argv) {
   const double K_pitch = 0.6;
   const double max_step_rad = 0.12;
 
+  // Runtime-tunable control direction signs.
+  // Use ros2 params to flip when camera/joint axis conventions differ.
+  node->declare_parameter<int>("yaw_cmd_sign", -1);
+  node->declare_parameter<int>("pitch_cmd_sign", +1);
+
   const double yaw_tol_rad   = 3.0 * M_PI / 180.0;
   const double pitch_tol_rad = 3.0 * M_PI / 180.0;
   const int center_need = 5;
@@ -234,80 +240,9 @@ int main(int argc, char** argv) {
   double latch_x = 0.0, latch_y = 0.0;
   bool have_latch = false;
 
-  rclcpp::Time last_dbg = node->get_clock()->now();
-  double dbg_cam_dist = NAN;
-  double dbg_cam_x = NAN, dbg_cam_y = NAN, dbg_cam_z = NAN;
-
-  double dbg_remain_to_pre = NAN;
-  double dbg_remain_to_final = NAN;
-  double dbg_step_j1 = 0.0, dbg_step_j2 = 0.0;
-
-  geometry_msgs::msg::Point dbg_ee_prev_pos;
-  bool dbg_have_ee_prev = false;
-  double dbg_ee_delta = NAN;
-
-  auto directionLR = [&](double cam_x)->const char* {
-    if (!isFinite(cam_x)) return "UNKNOWN";
-    if (cam_x >  1e-6) return "RIGHT(intent)";
-    if (cam_x < -1e-6) return "LEFT(intent)";
-    return "CENTERED";
-  };
-
-  auto directionUD = [&](double cam_y)->const char* {
-    if (!isFinite(cam_y)) return "UNKNOWN";
-    if (cam_y >  1e-6) return "DOWN(intent)";
-    if (cam_y < -1e-6) return "UP(intent)";
-    return "CENTERED";
-  };
-
-  auto updatePeriodicDebug = [&](){
-    rclcpp::Time now = node->get_clock()->now();
-    if ((now - last_dbg).seconds() < 0.1) return; 
-    last_dbg = now;
-
-    try{
-      auto ee = arm.getCurrentPose().pose;
-      if (!dbg_have_ee_prev) {
-        dbg_ee_prev_pos = ee.position;
-        dbg_have_ee_prev = true;
-        dbg_ee_delta = NAN;
-      } else {
-        dbg_ee_delta = dist3(ee.position, dbg_ee_prev_pos);
-        dbg_ee_prev_pos = ee.position;
-      }
-    } catch(...) {
-      dbg_ee_delta = NAN;
-    }
-
-    const char* st = "UNKNOWN";
-    switch(state){
-      case FSM::HOME_INIT:        st="HOME_INIT"; break;
-      case FSM::WAIT_MARKER:      st="WAIT_MARKER"; break;
-      case FSM::CENTER_ON_MARKER: st="CENTER_ON_MARKER"; break;
-      case FSM::PREGRASP:         st="PREGRASP"; break;
-      case FSM::APPROACH:         st="APPROACH"; break;
-      case FSM::GRASP:            st="GRASP"; break;
-      case FSM::LIFT_HOME:        st="LIFT_HOME"; break;
-    }
-
-    RCLCPP_INFO(node->get_logger(),
-      "[DBG10Hz] state=%s  cam->marker dist=%.3f (x=%.3f y=%.3f z=%.3f)  LR=%s UD=%s  "
-      "remain(pre)=%.3f remain(final)=%.3f  step(j1)=%.4f step(j2)=%.4f  ee_delta=%.4f",
-      st,
-      dbg_cam_dist, dbg_cam_x, dbg_cam_y, dbg_cam_z,
-      directionLR(dbg_cam_x), directionUD(dbg_cam_y),
-      dbg_remain_to_pre, dbg_remain_to_final,
-      dbg_step_j1, dbg_step_j2,
-      dbg_ee_delta
-    );
-  };
-
   rclcpp::Rate rate(10);
 
   while (rclcpp::ok()) {
-
-    updatePeriodicDebug();
-
     switch (state) {
 
       case FSM::HOME_INIT: {
@@ -325,13 +260,6 @@ int main(int argc, char** argv) {
         opened_on_detect = false;
         have_latch = false;
 
-        dbg_cam_dist = NAN;
-        dbg_cam_x = dbg_cam_y = dbg_cam_z = NAN;
-        dbg_remain_to_pre = NAN;
-        dbg_remain_to_final = NAN;
-        dbg_step_j1 = dbg_step_j2 = 0.0;
-        dbg_have_ee_prev = false;
-
         state = FSM::WAIT_MARKER;
         break;
       }
@@ -341,13 +269,6 @@ int main(int argc, char** argv) {
         if (best < 0) {
           center_count = 0;
           opened_on_detect = false;
-
-          dbg_cam_dist = NAN;
-          dbg_cam_x = dbg_cam_y = dbg_cam_z = NAN;
-          dbg_remain_to_pre = NAN;
-          dbg_remain_to_final = NAN;
-          dbg_step_j1 = dbg_step_j2 = 0.0;
-
           RCLCPP_INFO_THROTTLE(node->get_logger(), *node->get_clock(), 2000,
                                ">> WAIT_MARKER: no marker yet");
           break;
@@ -366,21 +287,15 @@ int main(int argc, char** argv) {
         geometry_msgs::msg::TransformStamped t_cam_marker;
         if (!getFreshTF(camera_frame, target_frame, t_cam_marker)) {
           center_count = 0;
-
-          dbg_cam_dist = NAN;
-          dbg_cam_x = dbg_cam_y = dbg_cam_z = NAN;
-
           break;
         }
 
+        // [ADDED] camera 기준 마커 xyz + 거리 로그
         {
           const double mx = t_cam_marker.transform.translation.x;
           const double my = t_cam_marker.transform.translation.y;
           const double mz = t_cam_marker.transform.translation.z;
           const double md = distXYZ(mx, my, mz);
-
-          dbg_cam_x = mx; dbg_cam_y = my; dbg_cam_z = mz; dbg_cam_dist = md;
-
           RCLCPP_INFO(node->get_logger(),
                       ">> MARKER (camera->%s): xyz=(%.3f, %.3f, %.3f) dist=%.3f m",
                       target_frame.c_str(), mx, my, mz, md);
@@ -406,13 +321,6 @@ int main(int argc, char** argv) {
         if (!getFreshTF(camera_frame, target_frame, t_cam_marker)) {
           center_count = 0;
           state = FSM::WAIT_MARKER;
-
-          dbg_cam_dist = NAN;
-          dbg_cam_x = dbg_cam_y = dbg_cam_z = NAN;
-          dbg_step_j1 = dbg_step_j2 = 0.0;
-          dbg_remain_to_pre = NAN;
-          dbg_remain_to_final = NAN;
-
           break;
         }
 
@@ -420,10 +328,7 @@ int main(int argc, char** argv) {
         const double y = t_cam_marker.transform.translation.y;
         const double z = t_cam_marker.transform.translation.z;
 
-        dbg_cam_x = x; dbg_cam_y = y; dbg_cam_z = z; dbg_cam_dist = distXYZ(x,y,z);
-        dbg_remain_to_pre = NAN;
-        dbg_remain_to_final = NAN;
-
+        // [ADDED] camera 기준 마커 xyz + 거리 로그
         const double d = distXYZ(x, y, z);
         RCLCPP_INFO(node->get_logger(),
                     ">> MARKER (camera->%s): xyz=(%.3f, %.3f, %.3f) dist=%.3f m",
@@ -451,7 +356,7 @@ int main(int argc, char** argv) {
             break;
           }
 
-          // base(link1) 기준 마커 xyz + 거리 로그
+          // [ADDED] base(link1) 기준 마커 xyz + 거리 로그
           {
             const double bx = t_base_marker.transform.translation.x;
             const double by = t_base_marker.transform.translation.y;
@@ -496,19 +401,23 @@ int main(int argc, char** argv) {
           break;
         }
 
-        // [ADDED] 현재 관절값 저장(이번 step 계획 변화량 로그용)
-        const double j1_before = joints[0];
-        const double j2_before = joints[1];
+        int yaw_cmd_sign = -1;
+        int pitch_cmd_sign = +1;
+        node->get_parameter("yaw_cmd_sign", yaw_cmd_sign);
+        node->get_parameter("pitch_cmd_sign", pitch_cmd_sign);
 
-        double dyaw   = clamp(-K_yaw   * yaw_err,   -max_step_rad, max_step_rad);
-        double dpitch = clamp(-K_pitch * pitch_err, -max_step_rad, max_step_rad);
+        yaw_cmd_sign = (yaw_cmd_sign >= 0) ? 1 : -1;
+        pitch_cmd_sign = (pitch_cmd_sign >= 0) ? 1 : -1;
+
+        double dyaw   = clamp(yaw_cmd_sign * K_yaw * yaw_err,   -max_step_rad, max_step_rad);
+        double dpitch = clamp(pitch_cmd_sign * K_pitch * pitch_err, -max_step_rad, max_step_rad);
+
+        RCLCPP_DEBUG(node->get_logger(),
+                     ">> CTRL: yaw_cmd_sign=%d pitch_cmd_sign=%d dyaw=%.4f dpitch=%.4f",
+                     yaw_cmd_sign, pitch_cmd_sign, dyaw, dpitch);
 
         joints[0] = clamp(joints[0] + dyaw,   j1_min, j1_max);
         joints[1] = clamp(joints[1] + dpitch, j2_min, j2_max);
-
-        // [ADDED] 이번 스텝에서 명령하려는 관절 변화량(rad)
-        dbg_step_j1 = joints[0] - j1_before;
-        dbg_step_j2 = joints[1] - j2_before;
 
         arm.setStartStateToCurrentState();
         arm.setJointValueTarget(joints);
@@ -525,16 +434,6 @@ int main(int argc, char** argv) {
       }
 
       case FSM::PREGRASP: {
-        // [ADDED] 목표까지 남은 거리 로그(10Hz 디버그용)
-        try {
-          auto ee = arm.getCurrentPose().pose;
-          dbg_remain_to_pre = dist3(ee.position, pregrasp_pose.position);
-          dbg_remain_to_final = dist3(ee.position, final_pose.position);
-        } catch(...) {
-          dbg_remain_to_pre = NAN;
-          dbg_remain_to_final = NAN;
-        }
-
         RCLCPP_INFO(node->get_logger(), ">> PREGRASP: move to pregrasp (position-only)");
         arm.setStartStateToCurrentState();
         arm.setPositionTarget(pregrasp_pose.position.x,
@@ -556,15 +455,6 @@ int main(int argc, char** argv) {
       }
 
       case FSM::APPROACH: {
-        try {
-          auto ee = arm.getCurrentPose().pose;
-          dbg_remain_to_pre = dist3(ee.position, pregrasp_pose.position);
-          dbg_remain_to_final = dist3(ee.position, final_pose.position);
-        } catch(...) {
-          dbg_remain_to_pre = NAN;
-          dbg_remain_to_final = NAN;
-        }
-
         RCLCPP_INFO(node->get_logger(), ">> APPROACH: cartesian to final");
         std::vector<geometry_msgs::msg::Pose> waypoints;
         waypoints.push_back(final_pose);
@@ -616,10 +506,6 @@ int main(int argc, char** argv) {
       }
 
       case FSM::GRASP: {
-        dbg_step_j1 = dbg_step_j2 = 0.0;
-        dbg_remain_to_pre = NAN;
-        dbg_remain_to_final = NAN;
-
         RCLCPP_INFO(node->get_logger(), ">> GRASP: close gripper NOW");
         operateGripper(node, gripper, GRIP_CLOSE, 10.0);
         state = FSM::LIFT_HOME;
@@ -627,10 +513,6 @@ int main(int argc, char** argv) {
       }
 
       case FSM::LIFT_HOME: {
-        dbg_step_j1 = dbg_step_j2 = 0.0;
-        dbg_remain_to_pre = NAN;
-        dbg_remain_to_final = NAN;
-
         RCLCPP_INFO(node->get_logger(), ">> LIFT_HOME: lift and home");
         auto ee = arm.getCurrentPose().pose;
 
@@ -660,3 +542,4 @@ int main(int argc, char** argv) {
   spinner.join();
   return 0;
 }
+ㄴ
