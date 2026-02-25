@@ -19,7 +19,7 @@
 #include <algorithm>
 #include <cmath>
 #include <string>
-#include <future>                                 // ✅ (필수) std::future_status
+#include <future>                                 
 
 using namespace std::chrono_literals;
 
@@ -38,8 +38,6 @@ static double dist3(const geometry_msgs::msg::Point& a, const geometry_msgs::msg
   return std::sqrt(dx*dx + dy*dy + dz*dz);
 }
 
-// ✅ 그리퍼: goal 보내고 sleep하는 방식 제거
-//    goal accept + result까지 기다려서 "안 잡힘/타이밍 꼬임" 줄임
 static bool operateGripper(rclcpp::Node::SharedPtr node,
                            rclcpp_action::Client<GripperCommand>::SharedPtr client,
                            double pos,
@@ -102,19 +100,15 @@ int main(int argc, char** argv) {
   exec->add_node(node);
   std::thread spinner([&exec](){ exec->spin(); });
 
-  // ---------------- TF ----------------
   auto tf_buffer  = std::make_unique<tf2_ros::Buffer>(node->get_clock());
   auto tf_listener = std::make_shared<tf2_ros::TransformListener>(*tf_buffer);
 
-  // --------------- MoveIt -------------
   moveit::planning_interface::MoveGroupInterface arm(node, "arm");
 
-  // ---------- SETTINGS ----------
   const std::string base_frame    = "link1";
   const std::string camera_frame  = "camera_link";
   const std::string markers_topic = "/aruco/markers";
 
-  // ✅ 핵심: TF로 얻는 latch가 link1 기준이므로, MoveIt 목표도 link1 기준으로 해석되게 통일
   arm.setPoseReferenceFrame(base_frame);
 
   arm.setMaxVelocityScalingFactor(0.20);
@@ -124,59 +118,47 @@ int main(int argc, char** argv) {
   arm.setGoalPositionTolerance(0.01);
   arm.setGoalOrientationTolerance(3.14);
 
-  // -------------- Gripper -------------
   auto gripper = rclcpp_action::create_client<GripperCommand>(
       node, "/gripper_controller/gripper_cmd");
 
   const double GRIP_OPEN  = 0.019;
   const double GRIP_CLOSE = 0.0;
 
-  // TF freshness
   const double max_tf_age_sec = 1.0;
 
-  // Marker selection bounds (from /aruco/markers camera-depth)
   const double marker_z_min = 0.05;
   const double marker_z_max = 2.00;
 
-  // Centering gains
   const double K_yaw   = 0.6;
   const double K_pitch = 0.6;
   const double max_step_rad = 0.12;
 
-  // Centering threshold
   const double yaw_tol_rad   = 3.0 * M_PI / 180.0;
   const double pitch_tol_rad = 3.0 * M_PI / 180.0;
   const int center_need = 5;
   int center_count = 0;
 
-  // Joint limits
   const double j1_min = -M_PI, j1_max = M_PI;
   const double j2_min = -1.5,  j2_max = 1.5;
 
-  // Pick distances
   const double pregrasp_dx = 0.12;
   const double final_dx    = 0.03;
   const double lift_dist   = 0.10;
 
-  // Cartesian
   const double cart_step     = 0.01;
   const double cart_jump_th  = 0.0;
   const double min_cart_frac = 0.85;
 
-  // Reached
   const double grasp_pos_tol = 0.03;
 
-  // Workspace
   const double z_min  = 0.05;
   const double z_max  = 0.35;
   const double z_work = 0.22;
   const double xy_max = 0.30;
 
-  // Failure handling
   int fail_count = 0;
   const int max_fail = 3;
 
-  // ---------- /aruco/markers cache ----------
   std::mutex mk_mtx;
   ArucoMarkers latest;
   bool have_markers = false;
@@ -234,7 +216,6 @@ int main(int argc, char** argv) {
     }
   };
 
-  // ---------- FSM ----------
   FSM state = FSM::HOME_INIT;
 
   int target_id = -1;
@@ -351,7 +332,6 @@ int main(int argc, char** argv) {
           latch_y = t_base_marker.transform.translation.y;
           have_latch = true;
 
-          // latch 기준으로 pregrasp/final 생성
           pregrasp_pose.position.x = clamp(latch_x, -xy_max, xy_max);
           pregrasp_pose.position.y = clamp(latch_y, -xy_max, xy_max);
           pregrasp_pose.position.z = clamp(z_work,  z_min, z_max);
@@ -360,8 +340,6 @@ int main(int argc, char** argv) {
           final_pose.position.y = clamp(latch_y, -xy_max, xy_max);
           final_pose.position.z = clamp(z_work,  z_min, z_max);
 
-          // ✅ 핵심: pregrasp와 final이 같으면 접근이 "실제로" 안 일어남
-          //    환경에 맞게 +가 아니라 -가 맞으면 부호만 바꾸면 됨.
           pregrasp_pose.position.x = clamp(latch_x + pregrasp_dx, -xy_max, xy_max);
           final_pose.position.x    = clamp(latch_x + final_dx,    -xy_max, xy_max);
 
