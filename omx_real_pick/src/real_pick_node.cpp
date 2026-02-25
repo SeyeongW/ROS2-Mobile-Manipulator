@@ -14,6 +14,7 @@
 #include <vector>
 #include <algorithm>
 #include <cmath>
+#include <future>
 
 using namespace std::chrono_literals;
 using GripperCommand = control_msgs::action::GripperCommand;
