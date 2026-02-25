@@ -1,4 +1,4 @@
-// omx_real_picker_alt_tf_direct.cpp
+// omx_real_picker_tf_only.cpp
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp_action/rclcpp_action.hpp>
 
@@ -7,7 +7,7 @@
 
 #include <tf2_ros/transform_listener.h>
 #include <tf2_ros/buffer.h>
-#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
+#include <tf2/time.h>
 
 #include <geometry_msgs/msg/transform_stamped.hpp>
 
@@ -16,6 +16,8 @@
 #include <deque>
 #include <vector>
 #include <algorithm>
+#include <future>
+#include <thread>
 
 using namespace std::chrono_literals;
 using GripperCommand = control_msgs::action::GripperCommand;
@@ -64,7 +66,6 @@ static bool operateGripperBlocking(
     return false;
   }
 
-  // 결과 상세가 필요하면 fut_res.get() 파싱 가능
   return true;
 }
 
@@ -72,9 +73,12 @@ enum class FSM { SEARCH, STABILIZE, APPROACH, GRASP, LIFT_AND_HOME };
 
 int main(int argc, char** argv){
   rclcpp::init(argc, argv);
-  auto node = std::make_shared<rclcpp::Node>("omx_real_picker_alt_tf_direct");
+  auto node = std::make_shared<rclcpp::Node>("omx_real_picker_tf_only");
 
-  node->declare_parameter<bool>("use_sim_time", true);
+  // Executor (필수: TF/Action 콜백 안정)
+  auto exec = std::make_shared<rclcpp::executors::SingleThreadedExecutor>();
+  exec->add_node(node);
+  std::thread spinner([&](){ exec->spin(); });
 
   // TF
   tf2_ros::Buffer tf_buffer(node->get_clock());
@@ -85,7 +89,7 @@ int main(int argc, char** argv){
   arm.setMaxVelocityScalingFactor(0.15);
   arm.setMaxAccelerationScalingFactor(0.15);
   arm.setPlanningTime(5.0);
-  arm.setGoalPositionTolerance(0.03);
+  arm.setGoalPositionTolerance(0.02);   // 조금 타이트하게
   arm.setGoalOrientationTolerance(3.14);
 
   // Frames
@@ -95,12 +99,13 @@ int main(int argc, char** argv){
   arm.setPoseReferenceFrame(base_frame);
   RCLCPP_INFO(node->get_logger(), "Planning frame: %s", arm.getPlanningFrame().c_str());
   RCLCPP_INFO(node->get_logger(), "Pose reference frame: %s", base_frame.c_str());
+  RCLCPP_INFO(node->get_logger(), "Marker frame: %s", marker_frame.c_str());
 
   // Gripper
   auto gripper = rclcpp_action::create_client<GripperCommand>(node, "/gripper_controller/gripper_cmd");
-  double GRIP_OPEN  = node->declare_parameter<double>("grip_open", 0.019);
-  double GRIP_CLOSE = node->declare_parameter<double>("grip_close", 0.0);   // -0.001 대신 0.0 권장
-  double GRIP_EFFORT= node->declare_parameter<double>("grip_effort", 30.0); // 0.5는 너무 낮을 가능성 큼
+  double GRIP_OPEN   = node->declare_parameter<double>("grip_open", 0.019);
+  double GRIP_CLOSE  = node->declare_parameter<double>("grip_close", 0.0);
+  double GRIP_EFFORT = node->declare_parameter<double>("grip_effort", 0.2);
 
   // SEARCH waypoints
   std::vector<std::vector<double>> waypoints = {
@@ -110,13 +115,14 @@ int main(int argc, char** argv){
     { 0.00, -0.60,  0.30,  1.20}
   };
 
-  // Approach params
-  double hover_offset = node->declare_parameter<double>("hover_offset", 0.15);
-  double step         = node->declare_parameter<double>("step", 0.03);
-  double final_min_z  = node->declare_parameter<double>("final_min_z", 0.04);
-
-  double max_tf_age_sec = node->declare_parameter<double>("max_tf_age_sec", 0.7);
+  // TF freshness
+  double max_tf_age_sec = node->declare_parameter<double>("max_tf_age_sec", 1.0);
   int stable_need       = node->declare_parameter<int>("stable_need", 5);
+
+  // Safety clamp (오프셋 아님: 로봇이 갈 수 없는 목표를 걸러주는 안전장치)
+  double min_z = node->declare_parameter<double>("min_z", 0.02);
+  double max_z = node->declare_parameter<double>("max_z", 0.40);
+  double max_xy = node->declare_parameter<double>("max_xy", 0.35);
 
   const size_t FILTER_N = 7;
   std::deque<double> fx, fy, fz;
@@ -127,32 +133,29 @@ int main(int argc, char** argv){
   arm.move();
   rclcpp::sleep_for(600ms);
 
-  if(!operateGripperBlocking(node, gripper, GRIP_OPEN, GRIP_EFFORT)){
-    RCLCPP_ERROR(node->get_logger(), "Gripper open failed");
-  }
+  (void)operateGripperBlocking(node, gripper, GRIP_OPEN, GRIP_EFFORT);
 
   FSM state = FSM::SEARCH;
   int wp_idx = 0;
   int stable_count = 0;
 
-  double current_offset = hover_offset;
   double mx=0, my=0, mz=0;
 
   auto getFreshMarkerFromTF = [&]() -> bool {
     if(!tf_buffer.canTransform(base_frame, marker_frame, tf2::TimePointZero, tf2::durationFromSec(0.15))){
       return false;
     }
-    geometry_msgs::msg::TransformStamped tf = tf_buffer.lookupTransform(base_frame, marker_frame, tf2::TimePointZero);
+    geometry_msgs::msg::TransformStamped tf = tf_buffer.lookupTransform(
+      base_frame, marker_frame, tf2::TimePointZero);
 
-    // TF age check
     const rclcpp::Time now = node->get_clock()->now();
     const rclcpp::Time st(tf.header.stamp);
     const double age = (now - st).seconds();
     if(age > max_tf_age_sec) return false;
 
-    double x=tf.transform.translation.x;
-    double y=tf.transform.translation.y;
-    double z=tf.transform.translation.z;
+    const double x = tf.transform.translation.x;
+    const double y = tf.transform.translation.y;
+    const double z = tf.transform.translation.z;
     if(!isFinite(x)||!isFinite(y)||!isFinite(z)) return false;
 
     mx = medianPush(fx, x, FILTER_N);
@@ -164,7 +167,7 @@ int main(int argc, char** argv){
   rclcpp::Rate rate(10);
 
   while(rclcpp::ok()){
-    bool visible = getFreshMarkerFromTF();
+    const bool visible = getFreshMarkerFromTF();
 
     switch(state){
       case FSM::SEARCH: {
@@ -177,7 +180,8 @@ int main(int argc, char** argv){
           break;
         }
 
-        RCLCPP_INFO(node->get_logger(), ">> SEARCH waypoint %d", wp_idx);
+        RCLCPP_INFO_THROTTLE(node->get_logger(), *node->get_clock(), 1500,
+                             ">> SEARCH waypoint %d", wp_idx);
         arm.setJointValueTarget(waypoints[wp_idx]);
         arm.move();
         wp_idx = (wp_idx + 1) % waypoints.size();
@@ -192,11 +196,10 @@ int main(int argc, char** argv){
         }
 
         stable_count++;
-        RCLCPP_INFO(node->get_logger(), ">> STABILIZE %d/%d  (%.3f %.3f %.3f)",
+        RCLCPP_INFO(node->get_logger(), ">> STABILIZE %d/%d  raw=(%.3f %.3f %.3f)",
                     stable_count, stable_need, mx, my, mz);
 
         if(stable_count >= stable_need){
-          current_offset = hover_offset;
           state = FSM::APPROACH;
           RCLCPP_INFO(node->get_logger(), ">> STABILIZE done -> APPROACH");
         }
@@ -210,33 +213,32 @@ int main(int argc, char** argv){
           break;
         }
 
-        // target pose in base_frame
-        geometry_msgs::msg::PoseStamped tgt;
-        tgt.header.frame_id = base_frame;
-        tgt.header.stamp = node->get_clock()->now();
-        tgt.pose.position.x = mx;
-        tgt.pose.position.y = my;
-        tgt.pose.position.z = std::max(final_min_z, mz + current_offset);
-        tgt.pose.orientation = arm.getCurrentPose().pose.orientation; // 4DOF면 orientation 고정이 더 안전
+        // ✅ 오로지 TF값(mx,my,mz)로 목표 생성 (offset 없음)
+        // 단, 안전 클램프만 적용
+        const double tx = std::clamp(mx, -max_xy, max_xy);
+        const double ty = std::clamp(my, -max_xy, max_xy);
+        const double tz = std::clamp(mz,  min_z,  max_z);
 
-        RCLCPP_INFO(node->get_logger(), ">> APPROACH off=%.3f  tgt=(%.3f %.3f %.3f)",
-                    current_offset, tgt.pose.position.x, tgt.pose.position.y, tgt.pose.position.z);
+        RCLCPP_INFO(node->get_logger(), ">> APPROACH tf=(%.3f %.3f %.3f) clamped=(%.3f %.3f %.3f)",
+                    mx, my, mz, tx, ty, tz);
 
-        arm.setPoseTarget(tgt);
-        arm.move();
+        arm.setStartStateToCurrentState();
+        arm.setPositionTarget(tx, ty, tz);
 
-        current_offset = std::max(0.0, current_offset - step);
-
-        if(current_offset <= 0.0001){
-          state = FSM::GRASP;
-          RCLCPP_INFO(node->get_logger(), ">> Reached -> GRASP");
+        auto res = arm.move();
+        if(res != moveit::core::MoveItErrorCode::SUCCESS){
+          RCLCPP_WARN(node->get_logger(), ">> Move failed (Invalid goal?). Back to STABILIZE");
+          stable_count = 0;
+          state = FSM::STABILIZE;
+          break;
         }
+
+        state = FSM::GRASP;
+        RCLCPP_INFO(node->get_logger(), ">> Arrived -> GRASP");
       } break;
 
       case FSM::GRASP: {
-        if(!operateGripperBlocking(node, gripper, GRIP_CLOSE, GRIP_EFFORT)){
-          RCLCPP_ERROR(node->get_logger(), "Gripper close failed");
-        }
+        (void)operateGripperBlocking(node, gripper, GRIP_CLOSE, GRIP_EFFORT);
         state = FSM::LIFT_AND_HOME;
       } break;
 
@@ -244,12 +246,15 @@ int main(int argc, char** argv){
         auto cur = arm.getCurrentPose();
         cur.header.frame_id = base_frame;
         cur.pose.position.z += 0.10;
+
+        arm.setStartStateToCurrentState();
         arm.setPoseTarget(cur);
         arm.move();
 
         arm.setNamedTarget("home");
         arm.move();
-        operateGripperBlocking(node, gripper, GRIP_OPEN, GRIP_EFFORT);
+
+        (void)operateGripperBlocking(node, gripper, GRIP_OPEN, GRIP_EFFORT);
         state = FSM::SEARCH;
       } break;
     }
@@ -258,18 +263,7 @@ int main(int argc, char** argv){
   }
 
   rclcpp::shutdown();
+  exec->cancel();
+  if(spinner.joinable()) spinner.join();
   return 0;
 }
- // MoveIt pose 기준 프레임을 link1로 강제
-
-// 타겟 입력을 topic Pose 변환 대신 TF 직접 조회로 변경
-
-// 그리퍼를 블로킹+결과 확인으로 바꾸고 effort 상향
-
-// 시간/신선도 판단을 TF 기준으로 통일
-
-// Planning frame: ... 출력이 뭐로 뜨는지
-
-// ros2 run tf2_ros tf2_echo link1 aruco_marker_23가 끊김 없이 나오는지
-
-// ros2 action list | grep gripper로 액션 이름이 /gripper_controller/gripper_cmd가 맞는지
