@@ -1,0 +1,87 @@
+diff --git a/omx_real_pick/src/real_pick_node.cpp b/omx_real_pick/src/real_pick_node.cpp
+index 38445b6db3370574e0a5497158494a436801383d..adf6aefef28eb74c14db3f8b400fe180ea638080 100644
+--- a/omx_real_pick/src/real_pick_node.cpp
++++ b/omx_real_pick/src/real_pick_node.cpp
+@@ -375,51 +375,53 @@ int main(int argc, char** argv) {
+           final_pose.position.z = clamp(z_work,  z_min, z_max);
+ 
+           pregrasp_pose.position.x = clamp(latch_x + pregrasp_dx, -xy_max, xy_max);
+           final_pose.position.x    = clamp(latch_x + final_dx,    -xy_max, xy_max);
+ 
+           auto ee_now = arm.getCurrentPose().pose;
+           pregrasp_pose.orientation = ee_now.orientation;
+           final_pose.orientation    = ee_now.orientation;
+ 
+           RCLCPP_INFO(node->get_logger(),
+                       ">> CENTER DONE (latched). pre=(%.3f %.3f %.3f) final=(%.3f %.3f %.3f)",
+                       pregrasp_pose.position.x, pregrasp_pose.position.y, pregrasp_pose.position.z,
+                       final_pose.position.x, final_pose.position.y, final_pose.position.z);
+ 
+           state = FSM::PREGRASP;
+           break;
+         }
+ 
+         std::vector<double> joints = arm.getCurrentJointValues();
+         if (joints.size() < 2) {
+           state = FSM::WAIT_MARKER;
+           break;
+         }
+ 
+         double dyaw   = clamp(K_yaw   * yaw_err,   -max_step_rad, max_step_rad);
+-        double dpitch = clamp(-K_pitch * pitch_err, -max_step_rad, max_step_rad);
++        // NOTE: pitch control uses opposite sign from yaw in this setup.
++        // If this sign is negative, |pitch_err| diverges in logs during centering.
++        double dpitch = clamp( K_pitch * pitch_err, -max_step_rad, max_step_rad);
+ 
+         joints[0] = clamp(joints[0] + dyaw,   j1_min, j1_max);
+         joints[1] = clamp(joints[1] + dpitch, j2_min, j2_max);
+ 
+         arm.setStartStateToCurrentState();
+         arm.setJointValueTarget(joints);
+ 
+         auto res = arm.move();
+         if (res != moveit::core::MoveItErrorCode::SUCCESS) {
+           fail_count++;
+           if (fail_count >= max_fail) state = FSM::HOME_INIT;
+           else state = FSM::WAIT_MARKER;
+         } else {
+           fail_count = 0;
+         }
+         break;
+       }
+ 
+       case FSM::PREGRASP: {
+         RCLCPP_INFO(node->get_logger(), ">> PREGRASP: move to pregrasp (position-only)");
+         arm.setStartStateToCurrentState();
+         arm.setPositionTarget(pregrasp_pose.position.x,
+                               pregrasp_pose.position.y,
+                               pregrasp_pose.position.z);
+ 
+@@ -502,26 +504,26 @@ int main(int argc, char** argv) {
+         geometry_msgs::msg::Pose lift_pose = ee;
+         lift_pose.position.z = clamp(lift_pose.position.z + lift_dist, z_min, z_max);
+ 
+         arm.setStartStateToCurrentState();
+         arm.setPoseTarget(lift_pose);
+         arm.move();
+ 
+         arm.setNamedTarget("home");
+         arm.move();
+ 
+         center_count = 0;
+         fail_count = 0;
+         opened_on_detect = false;
+         have_latch = false;
+         state = FSM::WAIT_MARKER;
+         break;
+       }
+     }
+ 
+     rate.sleep();
+   }
+ 
+   rclcpp::shutdown();
+   spinner.join();
+   return 0;
+
++}

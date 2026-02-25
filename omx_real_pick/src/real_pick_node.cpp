@@ -20,7 +20,6 @@
 #include <cmath>
 #include <string>
 #include <future>
-#include <deque>
 
 using namespace std::chrono_literals;
 
@@ -39,20 +38,8 @@ static double dist3(const geometry_msgs::msg::Point& a, const geometry_msgs::msg
   return std::sqrt(dx*dx + dy*dy + dz*dz);
 }
 
-// xyz 기반 거리
 static double distXYZ(double x, double y, double z) {
   return std::sqrt(x*x + y*y + z*z);
-}
-
-// ------------------------------
-// [ADDED] median filter util
-// ------------------------------
-static double medianPush(std::deque<double>& dq, double v, size_t N){
-  dq.push_back(v);
-  if (dq.size() > N) dq.pop_front();
-  std::vector<double> tmp(dq.begin(), dq.end());
-  std::sort(tmp.begin(), tmp.end());
-  return tmp[tmp.size()/2];
 }
 
 static bool operateGripper(rclcpp::Node::SharedPtr node,
@@ -117,17 +104,13 @@ int main(int argc, char** argv) {
   exec->add_node(node);
   std::thread spinner([&exec](){ exec->spin(); });
 
-  auto tf_buffer   = std::make_unique<tf2_ros::Buffer>(node->get_clock());
+  auto tf_buffer  = std::make_unique<tf2_ros::Buffer>(node->get_clock());
   auto tf_listener = std::make_shared<tf2_ros::TransformListener>(*tf_buffer);
 
   moveit::planning_interface::MoveGroupInterface arm(node, "arm");
 
-  const std::string base_frame = "link1";
-
-  // [CHANGED] optical frame 우선 사용 (없으면 camera_link로 fallback)
-  const std::string camera_frame_optical = "camera_color_optical_frame";
-  const std::string camera_frame_link    = "camera_link";
-
+  const std::string base_frame    = "link1";
+  const std::string camera_frame  = "camera_link";
   const std::string markers_topic = "/aruco/markers";
 
   arm.setPoseReferenceFrame(base_frame);
@@ -237,21 +220,6 @@ int main(int argc, char** argv) {
     }
   };
 
-  // [ADDED] optical 우선, 실패하면 camera_link로
-  auto getFreshTF_Camera = [&](const std::string& marker_frame,
-                               geometry_msgs::msg::TransformStamped& out,
-                               std::string& used_cam_frame) -> bool
-  {
-    if (getFreshTF(camera_frame_optical, marker_frame, out)) {
-      used_cam_frame = camera_frame_optical;
-      return true;
-    }
-    if (getFreshTF(camera_frame_link, marker_frame, out)) {
-      used_cam_frame = camera_frame_link;
-      return true;
-    }
-    return false;
-  };
 
   FSM state = FSM::HOME_INIT;
 
@@ -266,13 +234,87 @@ int main(int argc, char** argv) {
   double latch_x = 0.0, latch_y = 0.0;
   bool have_latch = false;
 
-  // [ADDED] 센터링 안정화용 median window
-  std::deque<double> fx, fy, fz;
-  const size_t FILT_N = 5;
+  // =========================================================
+  // [ADDED] 0.1초 단위 디버그 로그용 변수 (다른 로직은 건드리지 않음)
+  // =========================================================
+  rclcpp::Time last_dbg = node->get_clock()->now();
+  double dbg_cam_dist = NAN;
+  double dbg_cam_x = NAN, dbg_cam_y = NAN, dbg_cam_z = NAN;
+
+  // 진행거리(목표까지 남은 거리/이번 스텝 조인트 변화량 등)
+  double dbg_remain_to_pre = NAN;
+  double dbg_remain_to_final = NAN;
+  double dbg_step_j1 = 0.0, dbg_step_j2 = 0.0;
+
+  // EE 이동량(가능하면)
+  geometry_msgs::msg::Point dbg_ee_prev_pos;
+  bool dbg_have_ee_prev = false;
+  double dbg_ee_delta = NAN;
+
+  auto directionLR = [&](double cam_x)->const char* {
+    if (!isFinite(cam_x)) return "UNKNOWN";
+    if (cam_x >  1e-6) return "RIGHT(intent)";
+    if (cam_x < -1e-6) return "LEFT(intent)";
+    return "CENTERED";
+  };
+
+  auto directionUD = [&](double cam_y)->const char* {
+    if (!isFinite(cam_y)) return "UNKNOWN";
+    if (cam_y >  1e-6) return "DOWN(intent)";
+    if (cam_y < -1e-6) return "UP(intent)";
+    return "CENTERED";
+  };
+
+  auto updatePeriodicDebug = [&](){
+    rclcpp::Time now = node->get_clock()->now();
+    if ((now - last_dbg).seconds() < 0.1) return; // 10Hz
+    last_dbg = now;
+
+    // EE delta (best-effort)
+    try{
+      auto ee = arm.getCurrentPose().pose;
+      if (!dbg_have_ee_prev) {
+        dbg_ee_prev_pos = ee.position;
+        dbg_have_ee_prev = true;
+        dbg_ee_delta = NAN;
+      } else {
+        dbg_ee_delta = dist3(ee.position, dbg_ee_prev_pos);
+        dbg_ee_prev_pos = ee.position;
+      }
+    } catch(...) {
+      dbg_ee_delta = NAN;
+    }
+
+    const char* st = "UNKNOWN";
+    switch(state){
+      case FSM::HOME_INIT:        st="HOME_INIT"; break;
+      case FSM::WAIT_MARKER:      st="WAIT_MARKER"; break;
+      case FSM::CENTER_ON_MARKER: st="CENTER_ON_MARKER"; break;
+      case FSM::PREGRASP:         st="PREGRASP"; break;
+      case FSM::APPROACH:         st="APPROACH"; break;
+      case FSM::GRASP:            st="GRASP"; break;
+      case FSM::LIFT_HOME:        st="LIFT_HOME"; break;
+    }
+
+    RCLCPP_INFO(node->get_logger(),
+      "[DBG10Hz] state=%s  cam->marker dist=%.3f (x=%.3f y=%.3f z=%.3f)  LR=%s UD=%s  "
+      "remain(pre)=%.3f remain(final)=%.3f  step(j1)=%.4f step(j2)=%.4f  ee_delta=%.4f",
+      st,
+      dbg_cam_dist, dbg_cam_x, dbg_cam_y, dbg_cam_z,
+      directionLR(dbg_cam_x), directionUD(dbg_cam_y),
+      dbg_remain_to_pre, dbg_remain_to_final,
+      dbg_step_j1, dbg_step_j2,
+      dbg_ee_delta
+    );
+  };
 
   rclcpp::Rate rate(10);
 
   while (rclcpp::ok()) {
+
+    // [ADDED] 주기 로그는 while 루프마다 호출 (0.1초 게이트 걸려있음)
+    updatePeriodicDebug();
+
     switch (state) {
 
       case FSM::HOME_INIT: {
@@ -290,7 +332,13 @@ int main(int argc, char** argv) {
         opened_on_detect = false;
         have_latch = false;
 
-        fx.clear(); fy.clear(); fz.clear();
+        // [ADDED] 디버그 값 초기화
+        dbg_cam_dist = NAN;
+        dbg_cam_x = dbg_cam_y = dbg_cam_z = NAN;
+        dbg_remain_to_pre = NAN;
+        dbg_remain_to_final = NAN;
+        dbg_step_j1 = dbg_step_j2 = 0.0;
+        dbg_have_ee_prev = false;
 
         state = FSM::WAIT_MARKER;
         break;
@@ -301,6 +349,14 @@ int main(int argc, char** argv) {
         if (best < 0) {
           center_count = 0;
           opened_on_detect = false;
+
+          // [ADDED] WAIT 단계에서도 디버그 표시용 값 갱신(마커 없으면 NaN 유지)
+          dbg_cam_dist = NAN;
+          dbg_cam_x = dbg_cam_y = dbg_cam_z = NAN;
+          dbg_remain_to_pre = NAN;
+          dbg_remain_to_final = NAN;
+          dbg_step_j1 = dbg_step_j2 = 0.0;
+
           RCLCPP_INFO_THROTTLE(node->get_logger(), *node->get_clock(), 2000,
                                ">> WAIT_MARKER: no marker yet");
           break;
@@ -312,28 +368,34 @@ int main(int argc, char** argv) {
           center_count = 0;
           opened_on_detect = false;
           have_latch = false;
-
-          fx.clear(); fy.clear(); fz.clear();
-
           RCLCPP_INFO(node->get_logger(), ">> Target marker set to ID=%d (%s)",
                       target_id, target_frame.c_str());
         }
 
         geometry_msgs::msg::TransformStamped t_cam_marker;
-        std::string used_cam;
-        if (!getFreshTF_Camera(target_frame, t_cam_marker, used_cam)) {
+        if (!getFreshTF(camera_frame, target_frame, t_cam_marker)) {
           center_count = 0;
+
+          // [ADDED] TF 못 받으면 디버그 값은 NaN
+          dbg_cam_dist = NAN;
+          dbg_cam_x = dbg_cam_y = dbg_cam_z = NAN;
+
           break;
         }
 
+        // camera 기준 마커 xyz + 거리 로그
         {
           const double mx = t_cam_marker.transform.translation.x;
           const double my = t_cam_marker.transform.translation.y;
           const double mz = t_cam_marker.transform.translation.z;
           const double md = distXYZ(mx, my, mz);
+
+          // [ADDED] 10Hz 디버그용 값 갱신
+          dbg_cam_x = mx; dbg_cam_y = my; dbg_cam_z = mz; dbg_cam_dist = md;
+
           RCLCPP_INFO(node->get_logger(),
-                      ">> MARKER (%s->%s): xyz=(%.3f, %.3f, %.3f) dist=%.3f m",
-                      used_cam.c_str(), target_frame.c_str(), mx, my, mz, md);
+                      ">> MARKER (camera->%s): xyz=(%.3f, %.3f, %.3f) dist=%.3f m",
+                      target_frame.c_str(), mx, my, mz, md);
         }
 
         if (!opened_on_detect) {
@@ -353,31 +415,35 @@ int main(int argc, char** argv) {
         }
 
         geometry_msgs::msg::TransformStamped t_cam_marker;
-        std::string used_cam;
-        if (!getFreshTF_Camera(target_frame, t_cam_marker, used_cam)) {
+        if (!getFreshTF(camera_frame, target_frame, t_cam_marker)) {
           center_count = 0;
           state = FSM::WAIT_MARKER;
+
+          // [ADDED] TF 못 받으면 디버그 값 NaN
+          dbg_cam_dist = NAN;
+          dbg_cam_x = dbg_cam_y = dbg_cam_z = NAN;
+          dbg_step_j1 = dbg_step_j2 = 0.0;
+          dbg_remain_to_pre = NAN;
+          dbg_remain_to_final = NAN;
+
           break;
         }
 
-        // raw
-        double x = t_cam_marker.transform.translation.x;
-        double y = t_cam_marker.transform.translation.y;
-        double z = t_cam_marker.transform.translation.z;
+        const double x = t_cam_marker.transform.translation.x;
+        const double y = t_cam_marker.transform.translation.y;
+        const double z = t_cam_marker.transform.translation.z;
 
-        // [ADDED] median filtering to reduce depth/pose jitter
-        x = medianPush(fx, x, FILT_N);
-        y = medianPush(fy, y, FILT_N);
-        z = medianPush(fz, z, FILT_N);
+        // [ADDED] 10Hz 디버그용 값 갱신
+        dbg_cam_x = x; dbg_cam_y = y; dbg_cam_z = z; dbg_cam_dist = distXYZ(x,y,z);
+        dbg_remain_to_pre = NAN;
+        dbg_remain_to_final = NAN;
 
+        // camera 기준 마커 xyz + 거리 로그
         const double d = distXYZ(x, y, z);
         RCLCPP_INFO(node->get_logger(),
-                    ">> MARKER_FILT (%s->%s): xyz=(%.3f, %.3f, %.3f) dist=%.3f m",
-                    used_cam.c_str(), target_frame.c_str(), x, y, z, d);
+                    ">> MARKER (camera->%s): xyz=(%.3f, %.3f, %.3f) dist=%.3f m",
+                    target_frame.c_str(), x, y, z, d);
 
-        // [CHANGED] optical frame 축 가정에 맞춤:
-        // optical: x=right, y=down, z=forward
-        // center 오차는 화면 중앙(0,0)을 향하도록 yaw/pitch를 줄이는 방향
         const double yaw_err   = std::atan2(x, z);
         const double pitch_err = std::atan2(-y, z);
 
@@ -400,6 +466,7 @@ int main(int argc, char** argv) {
             break;
           }
 
+          // base(link1) 기준 마커 xyz + 거리 로그
           {
             const double bx = t_base_marker.transform.translation.x;
             const double by = t_base_marker.transform.translation.y;
@@ -444,12 +511,19 @@ int main(int argc, char** argv) {
           break;
         }
 
-        // [CHANGED] 오차를 줄이는 방향으로 joint update (부호는 위에서 바로잡았음)
-        double dyaw   = clamp(-K_yaw   * yaw_err,   -max_step_rad, max_step_rad);
+        // [ADDED] 현재 관절값 저장(이번 step 계획 변화량 로그용)
+        const double j1_before = joints[0];
+        const double j2_before = joints[1];
+
+        double dyaw   = clamp(K_yaw   * yaw_err,   -max_step_rad, max_step_rad);
         double dpitch = clamp(-K_pitch * pitch_err, -max_step_rad, max_step_rad);
 
         joints[0] = clamp(joints[0] + dyaw,   j1_min, j1_max);
         joints[1] = clamp(joints[1] + dpitch, j2_min, j2_max);
+
+        // [ADDED] 이번 스텝에서 명령하려는 관절 변화량(rad)
+        dbg_step_j1 = joints[0] - j1_before;
+        dbg_step_j2 = joints[1] - j2_before;
 
         arm.setStartStateToCurrentState();
         arm.setJointValueTarget(joints);
@@ -466,6 +540,16 @@ int main(int argc, char** argv) {
       }
 
       case FSM::PREGRASP: {
+        // [ADDED] 목표까지 남은 거리 로그(10Hz 디버그용)
+        try {
+          auto ee = arm.getCurrentPose().pose;
+          dbg_remain_to_pre = dist3(ee.position, pregrasp_pose.position);
+          dbg_remain_to_final = dist3(ee.position, final_pose.position);
+        } catch(...) {
+          dbg_remain_to_pre = NAN;
+          dbg_remain_to_final = NAN;
+        }
+
         RCLCPP_INFO(node->get_logger(), ">> PREGRASP: move to pregrasp (position-only)");
         arm.setStartStateToCurrentState();
         arm.setPositionTarget(pregrasp_pose.position.x,
@@ -487,6 +571,15 @@ int main(int argc, char** argv) {
       }
 
       case FSM::APPROACH: {
+        try {
+          auto ee = arm.getCurrentPose().pose;
+          dbg_remain_to_pre = dist3(ee.position, pregrasp_pose.position);
+          dbg_remain_to_final = dist3(ee.position, final_pose.position);
+        } catch(...) {
+          dbg_remain_to_pre = NAN;
+          dbg_remain_to_final = NAN;
+        }
+
         RCLCPP_INFO(node->get_logger(), ">> APPROACH: cartesian to final");
         std::vector<geometry_msgs::msg::Pose> waypoints;
         waypoints.push_back(final_pose);
@@ -538,6 +631,10 @@ int main(int argc, char** argv) {
       }
 
       case FSM::GRASP: {
+        dbg_step_j1 = dbg_step_j2 = 0.0;
+        dbg_remain_to_pre = NAN;
+        dbg_remain_to_final = NAN;
+
         RCLCPP_INFO(node->get_logger(), ">> GRASP: close gripper NOW");
         operateGripper(node, gripper, GRIP_CLOSE, 10.0);
         state = FSM::LIFT_HOME;
@@ -545,6 +642,10 @@ int main(int argc, char** argv) {
       }
 
       case FSM::LIFT_HOME: {
+        dbg_step_j1 = dbg_step_j2 = 0.0;
+        dbg_remain_to_pre = NAN;
+        dbg_remain_to_final = NAN;
+
         RCLCPP_INFO(node->get_logger(), ">> LIFT_HOME: lift and home");
         auto ee = arm.getCurrentPose().pose;
 
@@ -562,9 +663,6 @@ int main(int argc, char** argv) {
         fail_count = 0;
         opened_on_detect = false;
         have_latch = false;
-
-        fx.clear(); fy.clear(); fz.clear();
-
         state = FSM::WAIT_MARKER;
         break;
       }
