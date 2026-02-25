@@ -19,7 +19,7 @@
 #include <algorithm>
 #include <cmath>
 #include <string>
-#include <future>                                 
+#include <future>
 
 using namespace std::chrono_literals;
 
@@ -36,6 +36,11 @@ static double dist3(const geometry_msgs::msg::Point& a, const geometry_msgs::msg
   const double dy = a.y - b.y;
   const double dz = a.z - b.z;
   return std::sqrt(dx*dx + dy*dy + dz*dz);
+}
+
+// [ADDED] xyz 기반 거리
+static double distXYZ(double x, double y, double z) {
+  return std::sqrt(x*x + y*y + z*z);
 }
 
 static bool operateGripper(rclcpp::Node::SharedPtr node,
@@ -280,6 +285,17 @@ int main(int argc, char** argv) {
           break;
         }
 
+        // [ADDED] camera 기준 마커 xyz + 거리 로그
+        {
+          const double mx = t_cam_marker.transform.translation.x;
+          const double my = t_cam_marker.transform.translation.y;
+          const double mz = t_cam_marker.transform.translation.z;
+          const double md = distXYZ(mx, my, mz);
+          RCLCPP_INFO(node->get_logger(),
+                      ">> MARKER (camera->%s): xyz=(%.3f, %.3f, %.3f) dist=%.3f m",
+                      target_frame.c_str(), mx, my, mz, md);
+        }
+
         if (!opened_on_detect) {
           RCLCPP_INFO(node->get_logger(), ">> Marker detected! Open gripper now.");
           operateGripper(node, gripper, GRIP_OPEN, 5.0);
@@ -307,6 +323,12 @@ int main(int argc, char** argv) {
         const double y = t_cam_marker.transform.translation.y;
         const double z = t_cam_marker.transform.translation.z;
 
+        // [ADDED] camera 기준 마커 xyz + 거리 로그
+        const double d = distXYZ(x, y, z);
+        RCLCPP_INFO(node->get_logger(),
+                    ">> MARKER (camera->%s): xyz=(%.3f, %.3f, %.3f) dist=%.3f m",
+                    target_frame.c_str(), x, y, z, d);
+
         const double yaw_err   = std::atan2(x, z);
         const double pitch_err = std::atan2(-y, z);
 
@@ -327,6 +349,17 @@ int main(int argc, char** argv) {
             center_count = 0;
             state = FSM::WAIT_MARKER;
             break;
+          }
+
+          // [ADDED] base(link1) 기준 마커 xyz + 거리 로그
+          {
+            const double bx = t_base_marker.transform.translation.x;
+            const double by = t_base_marker.transform.translation.y;
+            const double bz = t_base_marker.transform.translation.z;
+            const double bd = distXYZ(bx, by, bz);
+            RCLCPP_INFO(node->get_logger(),
+                        ">> MARKER (base[%s]->%s): xyz=(%.3f, %.3f, %.3f) dist=%.3f m",
+                        base_frame.c_str(), target_frame.c_str(), bx, by, bz, bd);
           }
 
           latch_x = t_base_marker.transform.translation.x;
