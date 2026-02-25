@@ -1,4 +1,4 @@
-// omx_real_picker_tf_stop_pick.cpp
+// omx_real_picker_tf_stop_improved_keep_values.cpp
 
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp_action/rclcpp_action.hpp>
@@ -9,13 +9,10 @@
 #include <tf2_ros/transform_listener.h>
 #include <tf2_ros/buffer.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
+#include <tf2/exceptions.hpp>
 
 #include <geometry_msgs/msg/transform_stamped.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
-
-#include <angles/angles.h>
-#include <tf2/convert.hpp>
-#include <tf2/exceptions.hpp>
 
 #include <chrono>
 #include <cmath>
@@ -26,9 +23,16 @@
 
 using namespace std::chrono_literals;
 using GripperCommand = control_msgs::action::GripperCommand;
-using MoveGroupInterface = moveit::planning_interface::MoveGroupInterface;
 
 static bool isFinite(double v){ return std::isfinite(v); }
+
+static double medianPush(std::deque<double>& dq, double v, size_t N){
+  dq.push_back(v);
+  if(dq.size() > N) dq.pop_front();
+  std::vector<double> tmp(dq.begin(), dq.end());
+  std::sort(tmp.begin(), tmp.end());
+  return tmp[tmp.size()/2];
+}
 
 static bool operateGripperBlocking(
   rclcpp::Node::SharedPtr node,
@@ -63,18 +67,18 @@ static bool operateGripperBlocking(
     RCLCPP_ERROR(node->get_logger(), "Gripper result timeout");
     return false;
   }
-
   return true;
 }
 
-class OmxPickTfStop : public rclcpp::Node
+class OmxRealPickerStopBased : public rclcpp::Node
 {
 public:
-  OmxPickTfStop(rclcpp::Node::SharedPtr move_group_arm_node)
-  : Node("omx_pick_tf_stop")
+  OmxRealPickerStopBased()
+  : Node("omx_real_picker_tf_stop_based")
   {
-    // ---- params (declare) ----
-    // use_sim_time: 중복 declare 방지
+    // -----------------------------
+    // use_sim_time: 중복 선언 방지
+    // -----------------------------
     if(!this->has_parameter("use_sim_time")){
       this->declare_parameter<bool>("use_sim_time", true);
     }
@@ -82,267 +86,338 @@ public:
     this->get_parameter("use_sim_time", use_sim_time);
     RCLCPP_INFO(get_logger(), "use_sim_time=%s", use_sim_time ? "true" : "false");
 
-    base_frame_   = this->declare_parameter<std::string>("base_frame", "link1");
-    marker_frame_ = this->declare_parameter<std::string>("marker_frame", "aruco_marker_23");
-
-    // “성공 코드 방식”의 정지 판정 파라미터
-    filtering_time_      = this->declare_parameter<double>("filtering_time_sec", 2.0);   // 최근 TF만 사용
-    stop_time_threshold_ = this->declare_parameter<double>("stop_time_sec", 3.0);        // 3초 정지면 pick
-    distance_threshold_  = this->declare_parameter<double>("distance_threshold_m", 0.01);// 1cm 이하 이동이면 정지로 간주
-    target_z_min_        = this->declare_parameter<double>("target_z_min", 0.04);
-
-    // pick 동작 오프셋(성공 예제 그대로 기본값)
-    hover_z_ = this->declare_parameter<double>("hover_z", 0.12);
-    grasp_z_ = this->declare_parameter<double>("grasp_z", 0.07);
-    lift_z_  = this->declare_parameter<double>("lift_z",  0.12);
-
-    // place 위치
-    place_x_ = this->declare_parameter<double>("place_x", 0.10);
-    place_y_ = this->declare_parameter<double>("place_y", 0.20);
-    place_z_ = this->declare_parameter<double>("place_z", 0.13);
-
-    // MoveIt 속도
-    vel_scale_ = this->declare_parameter<double>("vel_scale", 0.15);
-    acc_scale_ = this->declare_parameter<double>("acc_scale", 0.15);
-
-    // gripper params (너 방식 유지)
-    grip_open_   = this->declare_parameter<double>("grip_open", 0.019);
-    grip_close_  = this->declare_parameter<double>("grip_close", 0.0);
-    grip_effort_ = this->declare_parameter<double>("grip_effort", 30.0);
-
-    // ---- TF ----
+    // -----------------------------
+    // TF
+    // -----------------------------
     tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
     tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 
-    // ---- MoveIt arm ----
-    arm_ = std::make_shared<MoveGroupInterface>(move_group_arm_node, "arm");
-    arm_->setPoseReferenceFrame(base_frame_);
-    arm_->setMaxVelocityScalingFactor(vel_scale_);
-    arm_->setMaxAccelerationScalingFactor(acc_scale_);
+    // -----------------------------
+    // MoveIt (네 코드 값 유지)
+    // -----------------------------
+    arm_ = std::make_shared<moveit::planning_interface::MoveGroupInterface>(
+      shared_from_this(), "arm");
+
+    arm_->setMaxVelocityScalingFactor(0.15);
+    arm_->setMaxAccelerationScalingFactor(0.15);
     arm_->setPlanningTime(5.0);
     arm_->setGoalPositionTolerance(0.03);
     arm_->setGoalOrientationTolerance(3.14);
 
+    // Frames (네 코드 값 유지)
+    base_frame_   = this->declare_parameter<std::string>("base_frame", "link1");
+    marker_frame_ = this->declare_parameter<std::string>("marker_frame", "aruco_marker_23");
+    arm_->setPoseReferenceFrame(base_frame_);
+
     RCLCPP_INFO(get_logger(), "Planning frame: %s", arm_->getPlanningFrame().c_str());
     RCLCPP_INFO(get_logger(), "Pose reference frame: %s", base_frame_.c_str());
 
-    // ---- Gripper action client (this node) ----
-    gripper_ = rclcpp_action::create_client<GripperCommand>(shared_from_this(),
-                                                            "/gripper_controller/gripper_cmd");
+    // -----------------------------
+    // Gripper (네 코드 값 유지)
+    // -----------------------------
+    gripper_ = rclcpp_action::create_client<GripperCommand>(
+      shared_from_this(), "/gripper_controller/gripper_cmd");
 
-    // ---- init pose ----
+    GRIP_OPEN_   = this->declare_parameter<double>("grip_open", 0.019);
+    GRIP_CLOSE_  = this->declare_parameter<double>("grip_close", 0.0);
+    GRIP_EFFORT_ = this->declare_parameter<double>("grip_effort", 30.0);
+
+    // -----------------------------
+    // SEARCH waypoints (네 코드 값 유지)
+    // -----------------------------
+    waypoints_ = {
+      { 0.00, -0.20,  0.20,  0.80},
+      { 1.00, -0.20,  0.20,  0.80},
+      {-1.00, -0.20,  0.20,  0.80},
+      { 0.00, -0.60,  0.30,  1.20}
+    };
+
+    // -----------------------------
+    // Approach params (네 코드 값 유지)
+    // -----------------------------
+    hover_offset_ = this->declare_parameter<double>("hover_offset", 0.15);
+    step_         = this->declare_parameter<double>("step", 0.03);
+    final_min_z_  = this->declare_parameter<double>("final_min_z", 0.04);
+
+    // TF age (네 코드 유지)
+    max_tf_age_sec_ = this->declare_parameter<double>("max_tf_age_sec", 0.7);
+
+    // -----------------------------
+    // “성공 코드 방식” 정지 판정 파라미터 (추가)
+    // -----------------------------
+    filtering_time_sec_      = this->declare_parameter<double>("filtering_time_sec", 2.0);
+    stop_time_threshold_sec_ = this->declare_parameter<double>("stop_time_threshold_sec", 1.0);
+    // ↑ 기본값 1.0초로 둔 이유:
+    //   CRANE는 3초 정지 후 pick인데, 네 환경에서 너무 느려질 수 있어서 기본은 1초.
+    //   필요하면 launch에서 2~3초로 올려.
+    distance_threshold_m_    = this->declare_parameter<double>("distance_threshold_m", 0.01);
+
+    // Median filter (네 코드 유지)
+    FILTER_N_ = (size_t)this->declare_parameter<int>("median_filter_N", 7);
+
+    // -----------------------------
+    // Init (네 코드 유지)
+    // -----------------------------
     RCLCPP_INFO(get_logger(), ">> HOME");
     arm_->setNamedTarget("home");
     arm_->move();
-    rclcpp::sleep_for(500ms);
-    operateGripperBlocking(shared_from_this(), gripper_, grip_open_, grip_effort_);
+    rclcpp::sleep_for(600ms);
 
-    // 과거 TF 초기화 플래그
-    have_past_ = false;
+    operateGripperBlocking(shared_from_this(), gripper_, GRIP_OPEN_, GRIP_EFFORT_);
+
+    // state
+    state_ = FSM::SEARCH;
+    wp_idx_ = 0;
     busy_ = false;
 
-    // ---- timer ----
-    timer_ = this->create_wall_timer(200ms, std::bind(&OmxPickTfStop::on_timer, this));
+    have_prev_tf_ = false;
+    stop_start_time_ = this->get_clock()->now();
+
+    current_offset_ = hover_offset_;
+
+    // timer (성공 코드 방식)
+    timer_ = this->create_wall_timer(200ms, std::bind(&OmxRealPickerStopBased::tick, this));
   }
 
 private:
-  void on_timer()
+  enum class FSM { SEARCH, STABILIZE, APPROACH, GRASP, LIFT_AND_HOME };
+
+  bool getMarkerFiltered(double& out_x, double& out_y, double& out_z, bool& out_fresh)
   {
-    if(busy_) return;  // pick 실행 중 재진입 방지
+    out_fresh = false;
 
     geometry_msgs::msg::TransformStamped tf_msg;
     try{
+      // 최신값(TimePointZero) 사용
       tf_msg = tf_buffer_->lookupTransform(base_frame_, marker_frame_, tf2::TimePointZero);
-    }catch(const tf2::TransformException& ex){
-      // TF가 없으면 그냥 대기
-      RCLCPP_DEBUG(get_logger(), "TF unavailable: %s", ex.what());
-      have_past_ = false;  // 끊기면 과거 비교 리셋하는 게 안전
-      return;
+    }catch(const tf2::TransformException&){
+      return false;
     }
-
-    // tf2::Transform으로 변환해 stamp 포함해서 처리 (성공 코드 방식)
-    tf2::Stamped<tf2::Transform> tf;
-    tf2::convert(tf_msg, tf);
 
     const rclcpp::Time now = this->get_clock()->now();
     if(now.nanoseconds() == 0){
-      // sim time인데 /clock 아직 안 들어오면 now=0일 수 있음
-      return;
+      // sim time인데 /clock 아직 안 온 상태
+      return false;
     }
 
-    const auto elapsed_ns =
-      now.nanoseconds() - tf.stamp_.time_since_epoch().count();
+    const rclcpp::Time st(tf_msg.header.stamp);
+    const double age = (now - st).seconds();
+    if(age > max_tf_age_sec_) return false;
 
-    const auto filtering_ns =
-      std::chrono::duration_cast<std::chrono::nanoseconds>(
-        std::chrono::duration<double>(filtering_time_)
-      ).count();
+    // filtering_time_sec_ 내 TF만 인정 (성공 코드 방식)
+    if(age > filtering_time_sec_) return false;
 
-    if(elapsed_ns > filtering_ns){
-      // 오래된 TF는 버림
-      have_past_ = false;
-      return;
-    }
+    const double x = tf_msg.transform.translation.x;
+    const double y = tf_msg.transform.translation.y;
+    const double z = tf_msg.transform.translation.z;
+    if(!isFinite(x)||!isFinite(y)||!isFinite(z)) return false;
 
-    // 첫 샘플이면 past 세팅하고 끝
-    if(!have_past_){
-      tf_past_ = tf;
+    out_x = medianPush(fx_, x, FILTER_N_);
+    out_y = medianPush(fy_, y, FILTER_N_);
+    out_z = medianPush(fz_, z, FILTER_N_);
+
+    out_fresh = true;
+    return true;
+  }
+
+  bool isStoppedForLongEnough(double x, double y, double z)
+  {
+    const rclcpp::Time now = this->get_clock()->now();
+
+    if(!have_prev_tf_){
+      prev_x_ = x; prev_y_ = y; prev_z_ = z;
       stop_start_time_ = now;
-      have_past_ = true;
-      return;
+      have_prev_tf_ = true;
+      return false;
     }
 
-    // 이동량 계산
-    const double diff = (tf_past_.getOrigin() - tf.getOrigin()).length();
+    const double dx = x - prev_x_;
+    const double dy = y - prev_y_;
+    const double dz = z - prev_z_;
+    const double dist = std::sqrt(dx*dx + dy*dy + dz*dz);
 
-    if(diff < distance_threshold_){
-      // 거의 움직이지 않음 → stop 유지시간 체크
-      const double stop_sec = (now - stop_start_time_).seconds();
-      if(stop_sec >= stop_time_threshold_){
-        // pick 트리거
-        tf2::Vector3 p = tf.getOrigin();
-        if(p.z() < target_z_min_) p.setZ(target_z_min_);
-        busy_ = true;
-        picking(p);
-        busy_ = false;
-
-        // pick 후에는 과거 상태 리셋
-        have_past_ = false;
-      }
+    if(dist < distance_threshold_m_){
+      const double stopped_sec = (now - stop_start_time_).seconds();
+      return (stopped_sec >= stop_time_threshold_sec_);
     }else{
-      // 움직이면 past 갱신 + stop timer 리셋
-      tf_past_ = tf;
+      prev_x_ = x; prev_y_ = y; prev_z_ = z;
       stop_start_time_ = now;
+      return false;
     }
   }
 
-  void move_to_xyz_keep_orientation(double x, double y, double z)
+  void setPoseXYZKeepOri(double x, double y, double z)
   {
     geometry_msgs::msg::PoseStamped tgt;
     tgt.header.frame_id = base_frame_;
     tgt.header.stamp = this->get_clock()->now();
-
     tgt.pose.position.x = x;
     tgt.pose.position.y = y;
     tgt.pose.position.z = z;
 
-    // 너 코드처럼 orientation 고정(현재자세 유지)
-    tgt.pose.orientation = arm_->getCurrentPose().pose.orientation;
-
+    tgt.pose.orientation = arm_->getCurrentPose().pose.orientation; // 네 방식 유지
     arm_->setPoseTarget(tgt);
     arm_->move();
   }
 
-  void picking(const tf2::Vector3& target_position)
+  void tick()
   {
-    RCLCPP_INFO(get_logger(), ">> PICK start (%.3f %.3f %.3f)",
-                target_position.x(), target_position.y(), target_position.z());
+    if(busy_) return;           // pick 동작 중 재진입 방지
+    rclcpp::spin_some(shared_from_this());
 
-    // (선택) 혹시 뭔가 잡고 있던 상황 대비: 열고-닫기-열기
-    operateGripperBlocking(shared_from_this(), gripper_, grip_open_,  grip_effort_);
-    rclcpp::sleep_for(150ms);
-    operateGripperBlocking(shared_from_this(), gripper_, grip_close_, grip_effort_);
-    rclcpp::sleep_for(150ms);
-    operateGripperBlocking(shared_from_this(), gripper_, grip_open_,  grip_effort_);
-    rclcpp::sleep_for(150ms);
+    double mx=0,my=0,mz=0;
+    bool fresh=false;
+    bool ok = getMarkerFiltered(mx,my,mz,fresh);
 
-    // 1) hover
-    move_to_xyz_keep_orientation(
-      target_position.x(),
-      target_position.y(),
-      target_position.z() + hover_z_);
+    const bool visible = ok && fresh;
 
-    // 2) open
-    operateGripperBlocking(shared_from_this(), gripper_, grip_open_, grip_effort_);
+    switch(state_){
+      case FSM::SEARCH: {
+        // 필터 큐 리셋
+        fx_.clear(); fy_.clear(); fz_.clear();
+        have_prev_tf_ = false;
 
-    // 3) grasp down
-    move_to_xyz_keep_orientation(
-      target_position.x(),
-      target_position.y(),
-      target_position.z() + grasp_z_);
+        if(visible){
+          state_ = FSM::STABILIZE;
+          RCLCPP_INFO(get_logger(), ">> Seen -> STABILIZE(stop-check)");
+          break;
+        }
 
-    // 4) close
-    operateGripperBlocking(shared_from_this(), gripper_, grip_close_, grip_effort_);
+        RCLCPP_INFO(get_logger(), ">> SEARCH waypoint %d", wp_idx_);
+        arm_->setJointValueTarget(waypoints_[wp_idx_]);
+        arm_->move();
+        wp_idx_ = (wp_idx_ + 1) % (int)waypoints_.size();
+      } break;
 
-    // 5) lift
-    move_to_xyz_keep_orientation(
-      target_position.x(),
-      target_position.y(),
-      target_position.z() + lift_z_);
+      case FSM::STABILIZE: {
+        if(!visible){
+          state_ = FSM::SEARCH;
+          RCLCPP_WARN(get_logger(), ">> Lost -> SEARCH");
+          break;
+        }
 
-    // 6) move to place (위로 들고 이동)
-    move_to_xyz_keep_orientation(place_x_, place_y_, 0.20);
+        // 성공 코드 방식: “정지 시간” 만족하면 접근 시작
+        const bool stopped = isStoppedForLongEnough(mx,my,mz);
+        RCLCPP_INFO(get_logger(), ">> STABILIZE stop=%s (%.3f %.3f %.3f)",
+                    stopped ? "YES" : "no", mx,my,mz);
 
-    // 7) 내려놓기
-    move_to_xyz_keep_orientation(place_x_, place_y_, place_z_);
+        if(stopped){
+          current_offset_ = hover_offset_;
+          state_ = FSM::APPROACH;
+          RCLCPP_INFO(get_logger(), ">> Stop confirmed -> APPROACH");
+        }
+      } break;
 
-    // 8) open
-    operateGripperBlocking(shared_from_this(), gripper_, grip_open_, grip_effort_);
+      case FSM::APPROACH: {
+        if(!visible){
+          state_ = FSM::STABILIZE;
+          have_prev_tf_ = false;
+          RCLCPP_WARN(get_logger(), ">> Lost -> STABILIZE");
+          break;
+        }
 
-    // 9) 살짝 상승
-    move_to_xyz_keep_orientation(place_x_, place_y_, 0.20);
+        // 네 기존 접근 방식 유지
+        const double target_z = std::max(final_min_z_, mz + current_offset_);
 
-    // 10) home
-    arm_->setNamedTarget("home");
-    arm_->move();
+        RCLCPP_INFO(get_logger(), ">> APPROACH off=%.3f tgt=(%.3f %.3f %.3f)",
+                    current_offset_, mx, my, target_z);
 
-    // 11) 기본 상태(열어둠)
-    operateGripperBlocking(shared_from_this(), gripper_, grip_open_, grip_effort_);
+        setPoseXYZKeepOri(mx, my, target_z);
 
-    RCLCPP_INFO(get_logger(), ">> PICK done");
+        current_offset_ = std::max(0.0, current_offset_ - step_);
+
+        if(current_offset_ <= 1e-4){
+          state_ = FSM::GRASP;
+          RCLCPP_INFO(get_logger(), ">> Reached -> GRASP");
+        }
+      } break;
+
+      case FSM::GRASP: {
+        busy_ = true;
+        if(!operateGripperBlocking(shared_from_this(), gripper_, GRIP_CLOSE_, GRIP_EFFORT_)){
+          RCLCPP_ERROR(get_logger(), "Gripper close failed");
+        }
+        busy_ = false;
+        state_ = FSM::LIFT_AND_HOME;
+      } break;
+
+      case FSM::LIFT_AND_HOME: {
+        busy_ = true;
+
+        auto cur = arm_->getCurrentPose();
+        cur.header.frame_id = base_frame_;
+        cur.pose.position.z += 0.10;
+        arm_->setPoseTarget(cur);
+        arm_->move();
+
+        arm_->setNamedTarget("home");
+        arm_->move();
+
+        operateGripperBlocking(shared_from_this(), gripper_, GRIP_OPEN_, GRIP_EFFORT_);
+
+        busy_ = false;
+
+        state_ = FSM::SEARCH;
+      } break;
+    }
   }
 
 private:
-  // params
+  // MoveIt/TF
+  std::shared_ptr<moveit::planning_interface::MoveGroupInterface> arm_;
+  rclcpp_action::Client<GripperCommand>::SharedPtr gripper_;
+  std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
+  std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
+  rclcpp::TimerBase::SharedPtr timer_;
+
+  // frames
   std::string base_frame_;
   std::string marker_frame_;
 
-  double filtering_time_;
-  double stop_time_threshold_;
-  double distance_threshold_;
-  double target_z_min_;
+  // params (keep)
+  double hover_offset_;
+  double step_;
+  double final_min_z_;
+  double max_tf_age_sec_;
 
-  double hover_z_;
-  double grasp_z_;
-  double lift_z_;
+  // stop-based params (new)
+  double filtering_time_sec_;
+  double stop_time_threshold_sec_;
+  double distance_threshold_m_;
 
-  double place_x_, place_y_, place_z_;
-  double vel_scale_, acc_scale_;
+  // gripper params (keep)
+  double GRIP_OPEN_;
+  double GRIP_CLOSE_;
+  double GRIP_EFFORT_;
 
-  double grip_open_, grip_close_, grip_effort_;
+  // search
+  std::vector<std::vector<double>> waypoints_;
+  int wp_idx_{0};
 
-  // components
-  std::shared_ptr<MoveGroupInterface> arm_;
-  rclcpp_action::Client<GripperCommand>::SharedPtr gripper_;
+  // median filter queues (keep)
+  size_t FILTER_N_;
+  std::deque<double> fx_, fy_, fz_;
 
-  std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
-  std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
-
-  rclcpp::TimerBase::SharedPtr timer_;
-
-  // state
-  bool have_past_{false};
-  bool busy_{false};
-  tf2::Stamped<tf2::Transform> tf_past_;
+  // stop detect state
+  bool have_prev_tf_{false};
+  double prev_x_{0}, prev_y_{0}, prev_z_{0};
   rclcpp::Time stop_start_time_;
+
+  // FSM state
+  enum class FSM { SEARCH, STABILIZE, APPROACH, GRASP, LIFT_AND_HOME };
+  FSM state_{FSM::SEARCH};
+
+  bool busy_{false};
+  double current_offset_{0.0};
 };
 
 int main(int argc, char** argv)
 {
   rclcpp::init(argc, argv);
-
-  // MoveIt node는 성공 예제처럼 따로 두는 게 종종 안정적
-  rclcpp::NodeOptions opts;
-  opts.automatically_declare_parameters_from_overrides(true);
-
-  auto move_group_arm_node = rclcpp::Node::make_shared("move_group_arm_node", opts);
-  auto picker_node = std::make_shared<OmxPickTfStop>(move_group_arm_node);
-
+  auto node = std::make_shared<OmxRealPickerStopBased>();
   rclcpp::executors::MultiThreadedExecutor exec;
-  exec.add_node(picker_node);
-  exec.add_node(move_group_arm_node);
+  exec.add_node(node);
   exec.spin();
-
   rclcpp::shutdown();
   return 0;
 }
