@@ -160,7 +160,8 @@ int main(int argc, char** argv) {
   const double min_cart_frac = 0.85;
 
   const double grasp_pos_tol = 0.03;
-  const double grip_close_dist_m = 0.10;
+  const double grip_close_dist_m = 0.10;  // Close gripper when marker is within 10 cm in camera frame.
+  const double center_cmd_interval_sec = 0.35;  // Limit centering command updates to reduce oscillation.
 
   const double z_min  = 0.05;
   const double z_max  = 0.35;
@@ -242,6 +243,7 @@ int main(int argc, char** argv) {
   bool have_latch = false;
 
   rclcpp::Rate rate(10);
+  rclcpp::Time last_center_cmd_time = node->get_clock()->now();
 
   while (rclcpp::ok()) {
     switch (state) {
@@ -335,17 +337,19 @@ int main(int argc, char** argv) {
                     ">> MARKER (camera->%s): xyz=(%.3f, %.3f, %.3f) dist=%.3f m",
                     target_frame.c_str(), x, y, z, d);
 
-        if (d <= grip_close_dist_m) {
+        const double yaw_err   = std::atan2(x, z);
+        const double pitch_err = std::atan2(-y, z);
+
+        if (d <= grip_close_dist_m &&
+            std::abs(yaw_err) < yaw_tol_rad &&
+            std::abs(pitch_err) < pitch_tol_rad) {
           RCLCPP_INFO(node->get_logger(),
-                      ">> CLOSE CONDITION: marker distance %.3f m <= %.3f m",
-                      d, grip_close_dist_m);
+                      ">> CLOSE CONDITION: dist=%.3f <= %.3f and aligned (yaw=%.2fdeg pitch=%.2fdeg)",
+                      d, grip_close_dist_m,
+                      yaw_err * 180.0 / M_PI, pitch_err * 180.0 / M_PI);
           state = FSM::GRASP;
           break;
         }
-            
-
-        const double yaw_err   = std::atan2(x, z);
-        const double pitch_err = std::atan2(-y, z);
 
         RCLCPP_INFO(node->get_logger(),
                     ">> CENTER: yaw_err=%.2fdeg pitch_err=%.2fdeg (x=%.3f y=%.3f z=%.3f)",
@@ -359,51 +363,8 @@ int main(int argc, char** argv) {
         }
 
         if (center_count >= center_need) {
-          geometry_msgs::msg::TransformStamped t_base_marker;
-          if (!getFreshTF(base_frame, target_frame, t_base_marker)) {
-            center_count = 0;
-            state = FSM::WAIT_MARKER;
-            break;
-          }
-
-          // [ADDED] base(link1) 기준 마커 xyz + 거리 로그
-          {
-            const double bx = t_base_marker.transform.translation.x;
-            const double by = t_base_marker.transform.translation.y;
-            const double bz = t_base_marker.transform.translation.z;
-            const double bd = distXYZ(bx, by, bz);
-            RCLCPP_INFO(node->get_logger(),
-                        ">> MARKER (base[%s]->%s): xyz=(%.3f, %.3f, %.3f) dist=%.3f m",
-                        base_frame.c_str(), target_frame.c_str(), bx, by, bz, bd);
-          }
-
-          latch_x = t_base_marker.transform.translation.x;
-          latch_y = t_base_marker.transform.translation.y;
-          have_latch = true;
-
-          pregrasp_pose.position.x = clamp(latch_x, -xy_max, xy_max);
-          pregrasp_pose.position.y = clamp(latch_y, -xy_max, xy_max);
-          pregrasp_pose.position.z = clamp(z_work,  z_min, z_max);
-
-          final_pose.position.x = clamp(latch_x, -xy_max, xy_max);
-          final_pose.position.y = clamp(latch_y, -xy_max, xy_max);
-          final_pose.position.z = clamp(z_work,  z_min, z_max);
-
-          pregrasp_pose.position.x = clamp(latch_x + pregrasp_dx, -xy_max, xy_max);
-          final_pose.position.x    = clamp(latch_x + final_dx,    -xy_max, xy_max);
-
-          auto ee_now = arm.getCurrentPose().pose;
-          pregrasp_pose.orientation = ee_now.orientation;
-          final_pose.orientation    = ee_now.orientation;
-
-          RCLCPP_INFO(node->get_logger(),
-                      ">> CENTER DONE (latched). pre=(%.3f %.3f %.3f) final=(%.3f %.3f %.3f)",
-                      pregrasp_pose.position.x, pregrasp_pose.position.y, pregrasp_pose.position.z,
-                      final_pose.position.x, final_pose.position.y, final_pose.position.z);
-
-          state = FSM::PREGRASP;
-          break;
-
+          // Keep tracking marker center continuously.
+          // Gripper closure is triggered only by distance threshold above.
           center_count = center_need;
         }
 
@@ -430,6 +391,12 @@ int main(int argc, char** argv) {
 
         joints[0] = clamp(joints[0] + dyaw,   j1_min, j1_max);
         joints[1] = clamp(joints[1] + dpitch, j2_min, j2_max);
+
+        const auto now_cmd = node->get_clock()->now();
+        if ((now_cmd - last_center_cmd_time).seconds() < center_cmd_interval_sec) {
+          break;
+        }
+        last_center_cmd_time = now_cmd;
 
         arm.setStartStateToCurrentState();
         arm.setJointValueTarget(joints);
