@@ -329,7 +329,7 @@ int main(int argc, char** argv) {
                     ">> MARKER (camera->%s): xyz=(%.3f, %.3f, %.3f) dist=%.3f m",
                     target_frame.c_str(), x, y, z, d);
 
-        const double yaw_err   = std::atan2(x, z);
+        const double yaw_err   = std::atan2(-x, z);
         const double pitch_err = std::atan2(-y, z);
 
         RCLCPP_INFO(node->get_logger(),
