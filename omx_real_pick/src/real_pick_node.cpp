@@ -1,3 +1,10 @@
+// real_pick_node.cpp
+// - Track ARUCO marker CENTER continuously (no latch)
+// - Keep centering with yaw/pitch joints, then continuously approach with live TF updates
+// - Close gripper when camera->marker distance <= 0.20m
+// - Avoid "Node already added to executor" by NOT using spin_until_future_complete
+// - Use MultiThreadedExecutor + Reentrant callback group for action client stability
+
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp_action/rclcpp_action.hpp>
 
@@ -26,31 +33,33 @@ using namespace std::chrono_literals;
 using GripperCommand = control_msgs::action::GripperCommand;
 using ArucoMarkers   = ros2_aruco_interfaces::msg::ArucoMarkers;
 
-static double clamp(double v, double lo, double hi) {
+static double clampd(double v, double lo, double hi) {
   return std::max(lo, std::min(hi, v));
 }
 static bool isFinite(double v) { return std::isfinite(v); }
 
-static double dist3(const geometry_msgs::msg::Point& a, const geometry_msgs::msg::Point& b) {
-  const double dx = a.x - b.x;
-  const double dy = a.y - b.y;
-  const double dz = a.z - b.z;
-  return std::sqrt(dx*dx + dy*dy + dz*dz);
-}
-
-// [ADDED] xyz 기반 거리
 static double distXYZ(double x, double y, double z) {
   return std::sqrt(x*x + y*y + z*z);
 }
 
-static bool operateGripper(rclcpp::Node::SharedPtr node,
-                           rclcpp_action::Client<GripperCommand>::SharedPtr client,
-                           double pos,
-                           double effort = 0.5,
-                           std::chrono::milliseconds send_timeout = 3000ms,
-                           std::chrono::milliseconds result_timeout = 5000ms)
+static double stepToward(double cur, double tgt, double max_step) {
+  const double d = tgt - cur;
+  if (std::abs(d) <= max_step) return tgt;
+  return cur + (d > 0 ? max_step : -max_step);
+}
+
+// IMPORTANT: No spin_until_future_complete here (node is already spinning in executor thread).
+static bool operateGripper(
+  rclcpp::Node * node,
+  const rclcpp_action::Client<GripperCommand>::SharedPtr & client,
+  double pos,
+  double effort = 10.0,
+  std::chrono::milliseconds server_wait = 2000ms,
+  std::chrono::milliseconds goal_wait   = 8000ms,
+  std::chrono::milliseconds result_wait = 12000ms
+)
 {
-  if (!client->wait_for_action_server(2s)) {
+  if (!client->wait_for_action_server(server_wait)) {
     RCLCPP_ERROR(node->get_logger(), "Gripper action server not available");
     return false;
   }
@@ -59,30 +68,37 @@ static bool operateGripper(rclcpp::Node::SharedPtr node,
   goal.command.position = pos;
   goal.command.max_effort = effort;
 
-  auto send_fut = client->async_send_goal(goal);
+  rclcpp_action::Client<GripperCommand>::SendGoalOptions opt;
+  opt.goal_response_callback =
+    [node](const rclcpp_action::ClientGoalHandle<GripperCommand>::SharedPtr & gh) {
+      if (!gh) RCLCPP_ERROR(node->get_logger(), "Gripper goal rejected (goal_response_cb)");
+      else     RCLCPP_INFO (node->get_logger(), "Gripper goal accepted");
+    };
 
-  if (send_fut.wait_for(send_timeout) != std::future_status::ready) {
+  auto fut_goal = client->async_send_goal(goal, opt);
+  if (fut_goal.wait_for(goal_wait) != std::future_status::ready) {
     RCLCPP_ERROR(node->get_logger(), "Gripper send_goal timeout");
     return false;
   }
 
-  auto gh = send_fut.get();
+  auto gh = fut_goal.get();
   if (!gh) {
     RCLCPP_ERROR(node->get_logger(), "Gripper goal rejected");
     return false;
   }
 
-  auto res_fut = client->async_get_result(gh);
-  if (res_fut.wait_for(result_timeout) != std::future_status::ready) {
+  auto fut_res = client->async_get_result(gh);
+  if (fut_res.wait_for(result_wait) != std::future_status::ready) {
     RCLCPP_ERROR(node->get_logger(), "Gripper result timeout");
     return false;
   }
 
-  auto res = res_fut.get();
-  if (res.code != rclcpp_action::ResultCode::SUCCEEDED) {
-    RCLCPP_ERROR(node->get_logger(), "Gripper failed (code=%d)", (int)res.code);
+  auto wrapped = fut_res.get();
+  if (wrapped.code != rclcpp_action::ResultCode::SUCCEEDED) {
+    RCLCPP_ERROR(node->get_logger(), "Gripper failed (code=%d)", (int)wrapped.code);
     return false;
   }
+
   return true;
 }
 
@@ -90,8 +106,7 @@ enum class FSM {
   HOME_INIT,
   WAIT_MARKER,
   CENTER_ON_MARKER,
-  PREGRASP,
-  APPROACH,
+  APPROACH_CONTINUOUS,
   GRASP,
   LIFT_HOME
 };
@@ -99,9 +114,13 @@ enum class FSM {
 int main(int argc, char** argv) {
   rclcpp::init(argc, argv);
 
-  auto node = std::make_shared<rclcpp::Node>("real_pick_node");
+  rclcpp::NodeOptions opts;
+  opts.automatically_declare_parameters_from_overrides(true);
 
-  auto exec = std::make_shared<rclcpp::executors::SingleThreadedExecutor>();
+  auto node = std::make_shared<rclcpp::Node>("real_pick_node", opts);
+
+  // Executor thread: TF/sub/action callbacks run here
+  auto exec = std::make_shared<rclcpp::executors::MultiThreadedExecutor>();
   exec->add_node(node);
   std::thread spinner([&exec](){ exec->spin(); });
 
@@ -110,68 +129,75 @@ int main(int argc, char** argv) {
 
   moveit::planning_interface::MoveGroupInterface arm(node, "arm");
 
-  const std::string base_frame    = "link1";
-  const std::string camera_frame  = "camera_link";
-  const std::string markers_topic = "/aruco/markers";
+  // ---- Frames / Topics ----
+  const std::string base_frame    = node->declare_parameter<std::string>("base_frame", "link1");
+  const std::string camera_frame  = node->declare_parameter<std::string>("camera_frame", "camera_link");
+  const std::string markers_topic = node->declare_parameter<std::string>("markers_topic", "/aruco/markers");
 
+  // ---- MoveIt tuning ----
   arm.setPoseReferenceFrame(base_frame);
+  arm.setMaxVelocityScalingFactor(node->declare_parameter<double>("vel_scale", 0.20));
+  arm.setMaxAccelerationScalingFactor(node->declare_parameter<double>("acc_scale", 0.20));
+  arm.setPlanningTime(node->declare_parameter<double>("planning_time", 3.0));
+  arm.setGoalPositionTolerance(node->declare_parameter<double>("pos_tol", 0.01));
+  arm.setGoalOrientationTolerance(node->declare_parameter<double>("ori_tol", 3.14));
 
-  arm.setMaxVelocityScalingFactor(0.20);
-  arm.setMaxAccelerationScalingFactor(0.20);
-  arm.setPlanningTime(3.0);
-
-  arm.setGoalPositionTolerance(0.01);
-  arm.setGoalOrientationTolerance(3.14);
-
+  // ---- Gripper action client with Reentrant callback group ----
+  auto gripper_cb_group = node->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
   auto gripper = rclcpp_action::create_client<GripperCommand>(
-      node, "/gripper_controller/gripper_cmd");
+      node, "/gripper_controller/gripper_cmd", gripper_cb_group);
 
-  const double GRIP_OPEN  = 0.019;
-  const double GRIP_CLOSE = 0.0;
+  const double GRIP_OPEN  = node->declare_parameter<double>("grip_open", 0.019);
+  const double GRIP_CLOSE = node->declare_parameter<double>("grip_close", 0.0);
+  const double GRIP_EFFORT_OPEN  = node->declare_parameter<double>("grip_effort_open", 10.0);
+  const double GRIP_EFFORT_CLOSE = node->declare_parameter<double>("grip_effort_close", 30.0);
 
-  const double max_tf_age_sec = 1.0;
+  // ---- TF freshness ----
+  const double max_tf_age_sec = node->declare_parameter<double>("max_tf_age_sec", 1.0);
 
-  const double marker_z_min = 0.05;
-  const double marker_z_max = 2.00;
+  // ---- Marker selection constraints (camera Z range) ----
+  const double marker_z_min = node->declare_parameter<double>("marker_z_min", 0.05);
+  const double marker_z_max = node->declare_parameter<double>("marker_z_max", 2.00);
 
-  const double K_yaw   = 0.6;
-  const double K_pitch = 0.6;
-  const double max_step_rad = 0.12;
+  // ---- Centering controller (joint space) ----
+  const double K_yaw       = node->declare_parameter<double>("K_yaw", 0.6);
+  const double K_pitch     = node->declare_parameter<double>("K_pitch", 0.6);
+  const double max_step_rad= node->declare_parameter<double>("max_step_rad", 0.12);
 
-  // Runtime-tunable control direction signs.
-  // Use ros2 params to flip when camera/joint axis conventions differ.
   node->declare_parameter<int>("yaw_cmd_sign", -1);
   node->declare_parameter<int>("pitch_cmd_sign", +1);
 
-  const double yaw_tol_rad   = 3.0 * M_PI / 180.0;
-  const double pitch_tol_rad = 3.0 * M_PI / 180.0;
-  const int center_need = 5;
-  int center_count = 0;
+  const double yaw_tol_rad   = node->declare_parameter<double>("yaw_tol_deg", 3.0)   * M_PI / 180.0;
+  const double pitch_tol_rad = node->declare_parameter<double>("pitch_tol_deg", 3.0) * M_PI / 180.0;
+  const int center_need      = node->declare_parameter<int>("center_need", 5);
 
-  const double j1_min = -M_PI, j1_max = M_PI;
-  const double j2_min = -1.5,  j2_max = 1.5;
+  // Joint bounds used for centering (adjust if needed)
+  const double j1_min = node->declare_parameter<double>("j1_min", -M_PI);
+  const double j1_max = node->declare_parameter<double>("j1_max",  M_PI);
+  const double j2_min = node->declare_parameter<double>("j2_min", -1.5);
+  const double j2_max = node->declare_parameter<double>("j2_max",  1.5);
 
-  const double pregrasp_dx = 0.12;
-  const double final_dx    = 0.03;
-  const double lift_dist   = 0.10;
+  // ---- Continuous approach settings (base frame) ----
+  const double xy_max      = node->declare_parameter<double>("xy_max", 0.30);
+  const double z_min       = node->declare_parameter<double>("z_min", 0.05);
+  const double z_max       = node->declare_parameter<double>("z_max", 0.35);
 
-  const double cart_step     = 0.01;
-  const double cart_jump_th  = 0.0;
-  const double min_cart_frac = 0.85;
+  // "Virtual point" offset along base X (positive/negative depends on your robot)
+  const double approach_dx = node->declare_parameter<double>("approach_dx", 0.06);
 
-  const double grasp_pos_tol = 0.03;
-  const double grip_close_dist_m = 0.10;  // Close gripper when EE-to-marker distance is within 10 cm.
-  const double close_align_tol_rad = 5.0 * M_PI / 180.0;  // Slightly relaxed alignment tolerance for grasp trigger.
-  const double center_cmd_interval_sec = 0.20;  // Limit centering command updates to reduce oscillation.
+  // Step limit per loop (avoid big jumps)
+  const double max_step_m  = node->declare_parameter<double>("max_step_m", 0.05);
 
-  const double z_min  = 0.05;
-  const double z_max  = 0.35;
-  const double z_work = 0.22;
-  const double xy_max = 0.30;
+  // Close threshold in camera distance
+  const double close_dist_m = node->declare_parameter<double>("close_dist_m", 0.10);
+
+  // Lift after grasp
+  const double lift_dist   = node->declare_parameter<double>("lift_dist", 0.10);
 
   int fail_count = 0;
-  const int max_fail = 3;
+  const int max_fail = node->declare_parameter<int>("max_fail", 3);
 
+  // ---- ArUco subscription ----
   std::mutex mk_mtx;
   ArucoMarkers latest;
   bool have_markers = false;
@@ -195,7 +221,7 @@ int main(int argc, char** argv) {
     double best_z = 1e9;
 
     for (size_t i = 0; i < latest.marker_ids.size(); i++) {
-      const double z = latest.poses[i].position.z;
+      const double z = latest.poses[i].position.z; // often camera frame
       if (!isFinite(z) || z < marker_z_min || z > marker_z_max) continue;
       if (z < best_z) {
         best_z = z;
@@ -205,19 +231,23 @@ int main(int argc, char** argv) {
     return best_id;
   };
 
-  auto getFreshTF = [&](const std::string& target, const std::string& source,
+  auto getFreshTF = [&](const std::string& target,
+                        const std::string& source,
                         geometry_msgs::msg::TransformStamped& out) -> bool
   {
     try {
-      if (!tf_buffer->canTransform(target, source, tf2::TimePointZero, 50ms))
+      if (!tf_buffer->canTransform(target, source, tf2::TimePointZero, 80ms))
         return false;
 
       auto t = tf_buffer->lookupTransform(target, source, tf2::TimePointZero);
 
-      rclcpp::Time now = node->get_clock()->now();
-      rclcpp::Time stamp = rclcpp::Time(t.header.stamp);
-      const double age = (now - stamp).seconds();
-      if (age > max_tf_age_sec) return false;
+      // If stamp is zero, skip age check (static TF / no stamp)
+      if (!(t.header.stamp.sec == 0 && t.header.stamp.nanosec == 0)) {
+        const rclcpp::Time now = node->get_clock()->now();
+        const rclcpp::Time stamp = rclcpp::Time(t.header.stamp);
+        const double age = (now - stamp).seconds();
+        if (age < 0.0 || age > max_tf_age_sec) return false;
+      }
 
       const auto &tr = t.transform.translation;
       if (!isFinite(tr.x) || !isFinite(tr.y) || !isFinite(tr.z)) return false;
@@ -229,40 +259,33 @@ int main(int argc, char** argv) {
     }
   };
 
-
+  // ---- FSM state ----
   FSM state = FSM::HOME_INIT;
 
   int target_id = -1;
   std::string target_frame;
 
-  geometry_msgs::msg::Pose pregrasp_pose;
-  geometry_msgs::msg::Pose final_pose;
-
   bool opened_on_detect = false;
-
-  double latch_x = 0.0, latch_y = 0.0;
-  bool have_latch = false;
+  int center_count = 0;
 
   rclcpp::Rate rate(10);
-  rclcpp::Time last_center_cmd_time = node->get_clock()->now();
 
   while (rclcpp::ok()) {
     switch (state) {
 
       case FSM::HOME_INIT: {
-        RCLCPP_INFO(node->get_logger(), ">> HOME_INIT: go 'home', gripper open");
+        RCLCPP_INFO(node->get_logger(), ">> HOME_INIT: home + open gripper");
         arm.setNamedTarget("home");
         arm.move();
         rclcpp::sleep_for(500ms);
 
-        operateGripper(node, gripper, GRIP_OPEN, 5.0);
+        (void)operateGripper(node.get(), gripper, GRIP_OPEN, GRIP_EFFORT_OPEN);
 
         fail_count = 0;
         center_count = 0;
         target_id = -1;
         target_frame.clear();
         opened_on_detect = false;
-        have_latch = false;
 
         state = FSM::WAIT_MARKER;
         break;
@@ -283,8 +306,7 @@ int main(int argc, char** argv) {
           target_frame = "aruco_marker_" + std::to_string(target_id);
           center_count = 0;
           opened_on_detect = false;
-          have_latch = false;
-          RCLCPP_INFO(node->get_logger(), ">> Target marker set to ID=%d (%s)",
+          RCLCPP_INFO(node->get_logger(), ">> Target marker ID=%d (%s)",
                       target_id, target_frame.c_str());
         }
 
@@ -294,20 +316,18 @@ int main(int argc, char** argv) {
           break;
         }
 
-        // [ADDED] camera 기준 마커 xyz + 거리 로그
-        {
-          const double mx = t_cam_marker.transform.translation.x;
-          const double my = t_cam_marker.transform.translation.y;
-          const double mz = t_cam_marker.transform.translation.z;
-          const double md = distXYZ(mx, my, mz);
-          RCLCPP_INFO(node->get_logger(),
-                      ">> MARKER (camera->%s): xyz=(%.3f, %.3f, %.3f) dist=%.3f m",
-                      target_frame.c_str(), mx, my, mz, md);
-        }
+        const double mx = t_cam_marker.transform.translation.x;
+        const double my = t_cam_marker.transform.translation.y;
+        const double mz = t_cam_marker.transform.translation.z;
+        const double md = distXYZ(mx, my, mz);
+
+        RCLCPP_INFO(node->get_logger(),
+                    ">> MARKER(camera->%s): xyz=(%.3f, %.3f, %.3f) dist=%.3f m",
+                    target_frame.c_str(), mx, my, mz, md);
 
         if (!opened_on_detect) {
-          RCLCPP_INFO(node->get_logger(), ">> Marker detected! Open gripper now.");
-          operateGripper(node, gripper, GRIP_OPEN, 5.0);
+          RCLCPP_INFO(node->get_logger(), ">> Marker detected! Open gripper.");
+          (void)operateGripper(node.get(), gripper, GRIP_OPEN, GRIP_EFFORT_OPEN);
           opened_on_detect = true;
         }
 
@@ -328,77 +348,33 @@ int main(int argc, char** argv) {
           break;
         }
 
-        geometry_msgs::msg::TransformStamped t_base_marker;
-        if (!getFreshTF(base_frame, target_frame, t_base_marker)) {
-          center_count = 0;
-          state = FSM::WAIT_MARKER;
-          break;
-        }
-
         const double x = t_cam_marker.transform.translation.x;
         const double y = t_cam_marker.transform.translation.y;
         const double z = t_cam_marker.transform.translation.z;
+        const double d = distXYZ(x, y, z);
 
-        const double cam_dist = distXYZ(x, y, z);
+        RCLCPP_INFO(node->get_logger(),
+                    ">> CENTER: cam xyz=(%.3f, %.3f, %.3f) dist=%.3f m",
+                    x, y, z, d);
+
+        // Close immediately if already within threshold
+        if (d <= close_dist_m) {
+          RCLCPP_INFO(node->get_logger(), ">> Within %.2fm -> GRASP", close_dist_m);
+          state = FSM::GRASP;
+          break;
+        }
+
         const double yaw_err   = std::atan2(x, z);
         const double pitch_err = std::atan2(-y, z);
 
-        const auto ee_now = arm.getCurrentPose().pose;
-        geometry_msgs::msg::Point mk_base;
-        mk_base.x = t_base_marker.transform.translation.x;
-        mk_base.y = t_base_marker.transform.translation.y;
-        mk_base.z = t_base_marker.transform.translation.z;
-        const double ee_marker_dist = dist3(ee_now.position, mk_base);
-
-        RCLCPP_INFO(node->get_logger(),
-                    ">> MARKER cam_xyz=(%.3f, %.3f, %.3f) cam_dist=%.3f m ee_dist=%.3f m",
-                    x, y, z, cam_dist, ee_marker_dist);
-
-        const bool center_aligned =
-            (std::abs(yaw_err) < yaw_tol_rad && std::abs(pitch_err) < pitch_tol_rad);
-
-        if (center_aligned) {
+        if (std::abs(yaw_err) < yaw_tol_rad && std::abs(pitch_err) < pitch_tol_rad) {
           center_count++;
           RCLCPP_INFO(node->get_logger(), ">> CENTER OK %d/%d", center_count, center_need);
         } else {
           center_count = 0;
         }
 
-        // Use EE-to-marker distance (not camera-to-marker distance) for grasp transition.
-        if (ee_marker_dist <= grip_close_dist_m &&
-            std::abs(yaw_err) < close_align_tol_rad &&
-            std::abs(pitch_err) < close_align_tol_rad) {
-          latch_x = mk_base.x;
-          latch_y = mk_base.y;
-          have_latch = true;
-
-          pregrasp_pose.position.x = clamp(latch_x + pregrasp_dx, -xy_max, xy_max);
-          pregrasp_pose.position.y = clamp(latch_y, -xy_max, xy_max);
-          pregrasp_pose.position.z = clamp(z_work, z_min, z_max);
-
-          final_pose.position.x = clamp(latch_x + final_dx, -xy_max, xy_max);
-          final_pose.position.y = clamp(latch_y, -xy_max, xy_max);
-          final_pose.position.z = clamp(z_work, z_min, z_max);
-
-          pregrasp_pose.orientation = ee_now.orientation;
-          final_pose.orientation = ee_now.orientation;
-
-          RCLCPP_INFO(node->get_logger(),
-                      ">> GRASP READY: ee_dist=%.3f <= %.3f, move PREGRASP",
-                      ee_marker_dist, grip_close_dist_m);
-          state = FSM::PREGRASP;
-          break;
-        }
-
-        RCLCPP_INFO(node->get_logger(),
-                    ">> CENTER: yaw_err=%.2fdeg pitch_err=%.2fdeg (x=%.3f y=%.3f z=%.3f)",
-                    yaw_err * 180.0 / M_PI, pitch_err * 180.0 / M_PI, x, y, z);
-
-        // When already well centered, avoid issuing more joint goals to reduce jitter.
-        if (center_count >= center_need) {
-          break;
-        }
-
+        // Update head joints (assumes joints[0]=yaw, joints[1]=pitch)
         std::vector<double> joints = arm.getCurrentJointValues();
         if (joints.size() < 2) {
           state = FSM::WAIT_MARKER;
@@ -409,25 +385,14 @@ int main(int argc, char** argv) {
         int pitch_cmd_sign = +1;
         node->get_parameter("yaw_cmd_sign", yaw_cmd_sign);
         node->get_parameter("pitch_cmd_sign", pitch_cmd_sign);
-
-        yaw_cmd_sign = (yaw_cmd_sign >= 0) ? 1 : -1;
+        yaw_cmd_sign   = (yaw_cmd_sign >= 0) ? 1 : -1;
         pitch_cmd_sign = (pitch_cmd_sign >= 0) ? 1 : -1;
 
-        double dyaw   = clamp(yaw_cmd_sign * K_yaw * yaw_err,   -max_step_rad, max_step_rad);
-        double dpitch = clamp(pitch_cmd_sign * K_pitch * pitch_err, -max_step_rad, max_step_rad);
+        double dyaw   = clampd(yaw_cmd_sign * K_yaw * yaw_err, -max_step_rad, max_step_rad);
+        double dpitch = clampd(-pitch_cmd_sign * K_pitch * pitch_err, -max_step_rad, max_step_rad);
 
-        RCLCPP_DEBUG(node->get_logger(),
-                     ">> CTRL: yaw_cmd_sign=%d pitch_cmd_sign=%d dyaw=%.4f dpitch=%.4f",
-                     yaw_cmd_sign, pitch_cmd_sign, dyaw, dpitch);
-
-        joints[0] = clamp(joints[0] + dyaw,   j1_min, j1_max);
-        joints[1] = clamp(joints[1] + dpitch, j2_min, j2_max);
-
-        const auto now_cmd = node->get_clock()->now();
-        if ((now_cmd - last_center_cmd_time).seconds() < center_cmd_interval_sec) {
-          break;
-        }
-        last_center_cmd_time = now_cmd;
+        joints[0] = clampd(joints[0] + dyaw,   j1_min, j1_max);
+        joints[1] = clampd(joints[1] + dpitch, j2_min, j2_max);
 
         arm.setStartStateToCurrentState();
         arm.setJointValueTarget(joints);
@@ -435,96 +400,99 @@ int main(int argc, char** argv) {
         auto res = arm.move();
         if (res != moveit::core::MoveItErrorCode::SUCCESS) {
           fail_count++;
+          RCLCPP_WARN(node->get_logger(), "CENTER move failed (%d/%d)", fail_count, max_fail);
           if (fail_count >= max_fail) state = FSM::HOME_INIT;
           else state = FSM::WAIT_MARKER;
+          break;
         } else {
           fail_count = 0;
         }
+
+        if (center_count >= center_need) {
+          RCLCPP_INFO(node->get_logger(), ">> CENTER DONE -> APPROACH_CONTINUOUS");
+          state = FSM::APPROACH_CONTINUOUS;
+        }
+
         break;
       }
 
-      case FSM::PREGRASP: {
-        RCLCPP_INFO(node->get_logger(), ">> PREGRASP: move to pregrasp (position-only)");
+      case FSM::APPROACH_CONTINUOUS: {
+        if (target_frame.empty()) {
+          state = FSM::WAIT_MARKER;
+          break;
+        }
+
+        // 1) Camera distance check (close when <= 20cm)
+        geometry_msgs::msg::TransformStamped t_cam_marker;
+        if (!getFreshTF(camera_frame, target_frame, t_cam_marker)) {
+          state = FSM::WAIT_MARKER;
+          break;
+        }
+
+        const double cx = t_cam_marker.transform.translation.x;
+        const double cy = t_cam_marker.transform.translation.y;
+        const double cz = t_cam_marker.transform.translation.z;
+        const double cd = distXYZ(cx, cy, cz);
+
+        RCLCPP_INFO(node->get_logger(),
+                    ">> TRACK(cam): xyz=(%.3f %.3f %.3f) dist=%.3f m",
+                    cx, cy, cz, cd);
+
+        if (cd <= close_dist_m) {
+          RCLCPP_INFO(node->get_logger(), ">> Within %.2fm -> GRASP", close_dist_m);
+          state = FSM::GRASP;
+          break;
+        }
+
+        // 2) Base-frame marker center -> continuously update target
+        geometry_msgs::msg::TransformStamped t_base_marker;
+        if (!getFreshTF(base_frame, target_frame, t_base_marker)) {
+          state = FSM::WAIT_MARKER;
+          break;
+        }
+
+        const double bx = t_base_marker.transform.translation.x;
+        const double by = t_base_marker.transform.translation.y;
+        const double bz = t_base_marker.transform.translation.z;
+
+        // Virtual target (marker center + approach_dx in base X)
+        const double goal_x = clampd(bx + approach_dx, -xy_max, xy_max);
+        const double goal_y = clampd(by,             -xy_max, xy_max);
+        const double goal_z = clampd(bz,              z_min,  z_max);
+
+        auto ee_now = arm.getCurrentPose().pose;
+
+        geometry_msgs::msg::Pose tgt = ee_now; // keep orientation
+        tgt.position.x = stepToward(ee_now.position.x, goal_x, max_step_m);
+        tgt.position.y = stepToward(ee_now.position.y, goal_y, max_step_m);
+        tgt.position.z = stepToward(ee_now.position.z, goal_z, max_step_m);
+
+        RCLCPP_INFO(node->get_logger(),
+                    ">> TRACK(base): marker=(%.3f %.3f %.3f) goal=(%.3f %.3f %.3f) step=(%.3f %.3f %.3f)",
+                    bx, by, bz, goal_x, goal_y, goal_z,
+                    tgt.position.x, tgt.position.y, tgt.position.z);
+
         arm.setStartStateToCurrentState();
-        arm.setPositionTarget(pregrasp_pose.position.x,
-                              pregrasp_pose.position.y,
-                              pregrasp_pose.position.z);
+        arm.setPoseTarget(tgt);
 
         auto res = arm.move();
+        arm.clearPoseTargets();
+
         if (res != moveit::core::MoveItErrorCode::SUCCESS) {
           fail_count++;
-          RCLCPP_ERROR(node->get_logger(), "PREGRASP failed (%d/%d)", fail_count, max_fail);
+          RCLCPP_WARN(node->get_logger(), "TRACK move failed (%d/%d)", fail_count, max_fail);
           if (fail_count >= max_fail) state = FSM::HOME_INIT;
-          else state = FSM::WAIT_MARKER;
-          break;
+          else state = FSM::CENTER_ON_MARKER;
+        } else {
+          fail_count = 0;
         }
-
-        fail_count = 0;
-        state = FSM::APPROACH;
-        break;
-      }
-
-      case FSM::APPROACH: {
-        RCLCPP_INFO(node->get_logger(), ">> APPROACH: cartesian to final");
-        std::vector<geometry_msgs::msg::Pose> waypoints;
-        waypoints.push_back(final_pose);
-
-        moveit_msgs::msg::RobotTrajectory traj;
-        arm.setStartStateToCurrentState();
-        const double frac = arm.computeCartesianPath(waypoints, cart_step, cart_jump_th, traj);
-
-        RCLCPP_INFO(node->get_logger(), ">> Cartesian fraction=%.2f", frac);
-
-        if (frac < min_cart_frac) {
-          fail_count++;
-          RCLCPP_ERROR(node->get_logger(), "Cartesian too low (%.2f) (%d/%d)", frac, fail_count, max_fail);
-          if (fail_count >= max_fail) state = FSM::HOME_INIT;
-          else state = FSM::WAIT_MARKER;
-          break;
-        }
-
-        moveit::planning_interface::MoveGroupInterface::Plan plan;
-        plan.trajectory_ = traj;
-
-        auto exec_res = arm.execute(plan);
-
-        if (exec_res != moveit::core::MoveItErrorCode::SUCCESS) {
-          rclcpp::sleep_for(800ms);
-          auto ee_now = arm.getCurrentPose().pose;
-          double err_now = dist3(ee_now.position, final_pose.position);
-          if (err_now <= grasp_pos_tol) {
-            RCLCPP_WARN(node->get_logger(),
-                        ">> Execute reported failure but EE is close enough (err=%.3f). Treat as success.",
-                        err_now);
-          } else {
-            fail_count++;
-            RCLCPP_ERROR(node->get_logger(), "Cartesian execute failed (%d/%d)", fail_count, max_fail);
-            if (fail_count >= max_fail) state = FSM::HOME_INIT;
-            else state = FSM::WAIT_MARKER;
-            break;
-          }
-        }
-
-        auto ee = arm.getCurrentPose().pose;
-        const double err = dist3(ee.position, final_pose.position);
-        RCLCPP_INFO(node->get_logger(), ">> EE pos err=%.3f m", err);
-
-        if (err <= grasp_pos_tol) state = FSM::GRASP;
-        else state = FSM::WAIT_MARKER;
 
         break;
       }
 
       case FSM::GRASP: {
-        RCLCPP_INFO(node->get_logger(), ">> GRASP: close gripper NOW");
-        const bool grasp_ok = operateGripper(node, gripper, GRIP_CLOSE, 10.0);
-        if (!grasp_ok) {
-          fail_count++;
-          RCLCPP_ERROR(node->get_logger(), ">> GRASP failed (%d/%d)", fail_count, max_fail);
-          if (fail_count >= max_fail) state = FSM::HOME_INIT;
-          else state = FSM::WAIT_MARKER;
-          break;
-        }
+        RCLCPP_INFO(node->get_logger(), ">> GRASP: close gripper");
+        (void)operateGripper(node.get(), gripper, GRIP_CLOSE, GRIP_EFFORT_CLOSE);
         state = FSM::LIFT_HOME;
         break;
       }
@@ -534,11 +502,12 @@ int main(int argc, char** argv) {
         auto ee = arm.getCurrentPose().pose;
 
         geometry_msgs::msg::Pose lift_pose = ee;
-        lift_pose.position.z = clamp(lift_pose.position.z + lift_dist, z_min, z_max);
+        lift_pose.position.z = clampd(lift_pose.position.z + lift_dist, z_min, z_max);
 
         arm.setStartStateToCurrentState();
         arm.setPoseTarget(lift_pose);
         arm.move();
+        arm.clearPoseTargets();
 
         arm.setNamedTarget("home");
         arm.move();
@@ -546,7 +515,6 @@ int main(int argc, char** argv) {
         center_count = 0;
         fail_count = 0;
         opened_on_detect = false;
-        have_latch = false;
         state = FSM::WAIT_MARKER;
         break;
       }
@@ -556,6 +524,6 @@ int main(int argc, char** argv) {
   }
 
   rclcpp::shutdown();
-  spinner.join();
+  if (spinner.joinable()) spinner.join();
   return 0;
 }
