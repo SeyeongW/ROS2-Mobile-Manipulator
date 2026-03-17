@@ -124,7 +124,6 @@ int main(int argc, char** argv) {
   const std::string camera_frame  = node->declare_parameter<std::string>("camera_frame", "camera_link");
   const std::string markers_topic = node->declare_parameter<std::string>("markers_topic", "/aruco/markers");
 
-  // [수정 1] pose reference frame을 base_frame으로 명시
   arm.setPoseReferenceFrame(base_frame);
 
   arm.setMaxVelocityScalingFactor(node->declare_parameter<double>("vel_scale", 0.20));
@@ -163,9 +162,11 @@ int main(int argc, char** argv) {
   const double j2_min = node->declare_parameter<double>("j2_min", -1.5);
   const double j2_max = node->declare_parameter<double>("j2_max",  1.5);
 
-  const double xy_max      = node->declare_parameter<double>("xy_max", 0.30);
-  const double z_min       = node->declare_parameter<double>("z_min", 0.05);
-  const double z_max       = node->declare_parameter<double>("z_max", 0.35);
+  const double xy_max = node->declare_parameter<double>("xy_max", 0.30);
+  const double z_min  = node->declare_parameter<double>("z_min", 0.05);
+
+  // 수정: 기본 z_max를 0.35 -> 0.80으로 상향
+  const double z_max  = node->declare_parameter<double>("z_max", 0.80);
 
   const double approach_dx  = node->declare_parameter<double>("approach_dx", 0.06);
   const double max_step_m   = node->declare_parameter<double>("max_step_m", 0.05);
@@ -257,7 +258,6 @@ int main(int argc, char** argv) {
   RCLCPP_INFO(node->get_logger(), "MoveIt pose_ref_frame=%s", arm.getPoseReferenceFrame().c_str());
   RCLCPP_INFO(node->get_logger(), "MoveIt eef_link=%s", arm.getEndEffectorLink().c_str());
 
-  // [수정 2] joint 이름/인덱스 확인 로그
   {
     const auto joint_names = arm.getJointNames();
     for (size_t i = 0; i < joint_names.size(); ++i) {
@@ -402,7 +402,6 @@ int main(int argc, char** argv) {
         double dyaw   = clampd(yaw_cmd_sign * K_yaw * yaw_err, -max_step_rad, max_step_rad);
         double dpitch = clampd(-pitch_cmd_sign * K_pitch * pitch_err, -max_step_rad, max_step_rad);
 
-        // [수정 3] CENTER 단계 디버그 로그 추가
         RCLCPP_INFO(node->get_logger(),
           ">> CENTER ERR: yaw_err=%.4f pitch_err=%.4f dyaw=%.4f dpitch=%.4f j0_before=%.4f j1_before=%.4f",
           yaw_err, pitch_err, dyaw, dpitch, joints[0], joints[1]);
@@ -490,13 +489,30 @@ int main(int argc, char** argv) {
         const double by = t_base_marker.transform.translation.y;
         const double bz = t_base_marker.transform.translation.z;
 
-        const double goal_x = clampd(bx + approach_dx, -xy_max, xy_max);
-        const double goal_y = clampd(by,              -xy_max, xy_max);
-        const double goal_z = clampd(bz,               z_min,   z_max);
+        // raw goal
+        const double raw_goal_x = bx + approach_dx;
+        const double raw_goal_y = by;
+        const double raw_goal_z = bz;
+
+        // clamped goal
+        const double goal_x = clampd(raw_goal_x, -xy_max, xy_max);
+        const double goal_y = clampd(raw_goal_y, -xy_max, xy_max);
+        const double goal_z = clampd(raw_goal_z, z_min, z_max);
 
         auto ee_now = arm.getCurrentPose().pose;
 
-        // [수정 4] APPROACH 단계 frame 확인 로그 추가
+        RCLCPP_INFO(node->get_logger(),
+          ">> TRACK(base): marker=(%.3f %.3f %.3f) raw_goal=(%.3f %.3f %.3f) clamped_goal=(%.3f %.3f %.3f)",
+          bx, by, bz,
+          raw_goal_x, raw_goal_y, raw_goal_z,
+          goal_x, goal_y, goal_z);
+
+        RCLCPP_INFO(node->get_logger(),
+          ">> APPROACH CLAMP: raw_goal=(%.3f %.3f %.3f) clamped_goal=(%.3f %.3f %.3f) limits: xy=[%.2f] z=[%.2f..%.2f]",
+          raw_goal_x, raw_goal_y, raw_goal_z,
+          goal_x, goal_y, goal_z,
+          xy_max, z_min, z_max);
+
         RCLCPP_INFO(node->get_logger(),
           ">> APPROACH FRAME CHECK: base_goal=(%.3f %.3f %.3f), ee_now=(%.3f %.3f %.3f), pose_ref=%s",
           goal_x, goal_y, goal_z,
@@ -513,12 +529,8 @@ int main(int argc, char** argv) {
         const double tgt_z = stepToward(ee_now.position.z, goal_z, max_step_m);
 
         RCLCPP_INFO(node->get_logger(),
-          ">> APPROACH DBG: EE=(%.3f %.3f %.3f) goal_raw=(%.3f %.3f %.3f) tgt=(%.3f %.3f %.3f) goal_err=%.4f",
-          ee_now.position.x, ee_now.position.y, ee_now.position.z,
-          goal_x, goal_y, goal_z,
-          tgt_x, tgt_y, tgt_z,
-          goal_err
-        );
+          ">> APPROACH STEP: tgt=(%.3f %.3f %.3f) goal_err=%.4f",
+          tgt_x, tgt_y, tgt_z, goal_err);
 
         if (goal_err <= approach_arrive_tol) {
           RCLCPP_INFO(node->get_logger(),
